@@ -12,5 +12,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 	List<Task> findByProjectId(UUID projectId);
 	List<Task> findByAssigneeId(UUID assigneeId);
 	List<Task> findByCreatorId(UUID creatorId);
+	long countByCreatedAtAfter(java.time.LocalDateTime createdAt);
+	List<Task> findTop10ByProjectTeamIdInAndTitleContainingIgnoreCaseOrderByUpdatedAtDesc(List<UUID> teamIds, String query);
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,14 @@ export default function RegisterPage() {
   })
   const router = useRouter()
   const dispatch = useAppDispatch()
-  const { isLoading, error } = useAppSelector((state) => state.auth)
+  const { isLoading, isAuthenticated } = useAppSelector((state) => state.auth)
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken")
+    if (token || isAuthenticated) {
+      router.replace("/dashboard")
+    }
+  }, [isAuthenticated, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

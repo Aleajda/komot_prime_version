@@ -1,8 +1,21 @@
+"use client"
+
 import Link from "next/link"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function Home() {
+  const router = useRouter()
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken")
+    if (token) {
+      router.replace("/dashboard")
+    }
+  }, [router])
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 dark:bg-[#0f131a]">
       <div className="w-full max-w-2xl space-y-10 text-center">
@@ -47,15 +60,6 @@ export default function Home() {
               </Link>
             </CardContent>
           </Card>
-        </div>
-
-        <div className="text-sm text-muted-foreground dark:text-[#8e929b]">
-          <Link
-            href="/dashboard"
-            className="text-primary/80 underline underline-offset-2 hover:text-primary dark:text-[rgba(91,207,253,0.8)] dark:hover:text-[#5bcffd]"
-          >
-            Перейти к дашборду →
-          </Link>
         </div>
       </div>
     </div>

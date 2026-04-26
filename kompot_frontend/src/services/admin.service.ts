@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client"
-import { AdminStatsResponse, AdminTeamSummary, AdminUserSummary } from "@/types/api"
+import { AdminStatsResponse, AdminTeamSummary, AdminUserSummary, PageResponse } from "@/types/api"
 
 export const adminService = {
   getStats: async (): Promise<AdminStatsResponse> => {
@@ -8,8 +8,8 @@ export const adminService = {
   },
 
   getUsers: async (): Promise<AdminUserSummary[]> => {
-    const response = await apiClient.get<AdminUserSummary[]>("/admin/users")
-    return response.data
+    const response = await apiClient.get<PageResponse<AdminUserSummary>>("/admin/users")
+    return response.data.content
   },
 
   getTeams: async (): Promise<AdminTeamSummary[]> => {

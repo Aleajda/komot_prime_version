@@ -1,5 +1,7 @@
 package com.edu.kompot.controller;
 
+import com.edu.kompot.dto.response.AdminStatsResponse;
+import com.edu.kompot.dto.response.AdminTeamSummary;
 import com.edu.kompot.dto.response.UserResponse;
 import com.edu.kompot.entity.User;
 import com.edu.kompot.service.AdminService;
@@ -11,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -23,6 +26,16 @@ public class AdminController {
 	@GetMapping("/users")
 	public ResponseEntity<Page<UserResponse>> getAllUsers(Pageable pageable) {
 		return ResponseEntity.ok(adminService.getAllUsers(pageable));
+	}
+
+	@GetMapping("/statistics")
+	public ResponseEntity<AdminStatsResponse> getStatistics() {
+		return ResponseEntity.ok(adminService.getStatistics());
+	}
+
+	@GetMapping("/teams")
+	public ResponseEntity<List<AdminTeamSummary>> getTeams() {
+		return ResponseEntity.ok(adminService.getTeamSummaries());
 	}
 
 	@PutMapping("/users/{userId}/role")

@@ -35,13 +35,19 @@ public class TeamController {
 	}
 
 	@PutMapping("/{id}")
-	public ResponseEntity<TeamResponse> updateTeam(@PathVariable UUID id, @RequestBody TeamResponse teamResponse) {
-		return ResponseEntity.ok(teamService.updateTeam(id, teamResponse));
+	public ResponseEntity<TeamResponse> updateTeam(
+			@PathVariable UUID id,
+			@RequestBody TeamResponse teamResponse,
+			Authentication authentication
+	) {
+		UUID userId = UUID.fromString(authentication.getName());
+		return ResponseEntity.ok(teamService.updateTeam(id, teamResponse, userId));
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> deleteTeam(@PathVariable UUID id) {
-		teamService.deleteTeam(id);
+	public ResponseEntity<Void> deleteTeam(@PathVariable UUID id, Authentication authentication) {
+		UUID userId = UUID.fromString(authentication.getName());
+		teamService.deleteTeam(id, userId);
 		return ResponseEntity.noContent().build();
 	}
 }

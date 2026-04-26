@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -50,6 +52,12 @@ public class Task {
 	@Column(nullable = false)
 	@Builder.Default
 	private TaskPriority priority = TaskPriority.MEDIUM;
+
+	@ElementCollection(fetch = FetchType.EAGER)
+	@CollectionTable(name = "task_editors", joinColumns = @JoinColumn(name = "task_id"))
+	@Column(name = "user_id", nullable = false)
+	@Builder.Default
+	private Set<UUID> editorIds = new HashSet<>();
 
 	private LocalDateTime dueDate;
 

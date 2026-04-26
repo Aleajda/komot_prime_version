@@ -13,6 +13,7 @@ import {
   UserPlus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAppSelector } from "@/store/hooks"
 
 const navigation = [
   { name: "Дашборд", href: "/dashboard", icon: LayoutDashboard },
@@ -32,6 +33,8 @@ interface SidebarProps {
 
 export const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
   const pathname = usePathname()
+  const { user } = useAppSelector((state) => state.auth)
+  const filteredNavigation = navigation.filter((item) => item.href !== "/admin" || user?.role === "ADMIN")
 
   return (
     <>
@@ -50,7 +53,7 @@ export const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
         )}
       >
         <nav className="flex flex-col gap-1 p-4">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
             const Icon = item.icon
 

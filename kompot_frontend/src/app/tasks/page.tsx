@@ -5,12 +5,17 @@ import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog } from "@/components/ui/dialog"
+import { AlertDialog } from "@/components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { projectService, taskService, teamService } from "@/services"
 import { ProjectResponse, TaskResponse, TeamResponse, UserResponse } from "@/types/api"
-import { Loader2, Plus } from "lucide-react"
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { userService } from "@/services"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
+import { useAppSelector } from "@/store/hooks"
 
 const STATUS_LABELS: Record<TaskResponse["status"], string> = {
   TODO: "Новая",
@@ -42,12 +47,25 @@ export default function TasksPage() {
     priority: "MEDIUM" as TaskResponse["priority"],
   })
   const [userCache, setUserCache] = useState<Record<string, UserResponse>>({})
+  const [users, setUsers] = useState<UserResponse[]>([])
+  const [editingTask, setEditingTask] = useState<TaskResponse | null>(null)
+  const [deletingTask, setDeletingTask] = useState<TaskResponse | null>(null)
+  const { user: currentUser } = useAppSelector((state) => state.auth)
+  const [editingForm, setEditingForm] = useState({
+    title: "",
+    description: "",
+    status: "TODO" as TaskResponse["status"],
+    priority: "MEDIUM" as TaskResponse["priority"],
+    assigneeId: "__none__",
+    editorIds: [] as string[],
+  })
 
   useEffect(() => {
     const loadTeams = async () => {
       try {
         const data = await teamService.getUserTeams()
         setTeams(data)
+        setUsers(await userService.getAllUsers())
         if (data.length > 0) {
           setSelectedTeamId(data[0].id)
         }
@@ -153,10 +171,6 @@ export default function TasksPage() {
     }
   }
 
-  const currentTeamName = useMemo(
-    () => teams.find((t) => t.id === selectedTeamId)?.name || "",
-    [teams, selectedTeamId]
-  )
   const currentProjectName = useMemo(
     () => projects.find((p) => p.id === selectedProjectId)?.name || "",
     [projects, selectedProjectId]
@@ -167,6 +181,55 @@ export default function TasksPage() {
     const user = userCache[id]
     if (!user) return id
     return user.username || user.email
+  }
+
+  const canEdit = (task: TaskResponse) => {
+    if (!currentUser) return false
+    if (currentUser.role === "ADMIN") return true
+    return (task.editorIds || []).includes(currentUser.id)
+  }
+
+  const handleStartEdit = (task: TaskResponse) => {
+    setEditingTask(task)
+    setEditingForm({
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      priority: task.priority,
+      assigneeId: task.assigneeId || "__none__",
+      editorIds: task.editorIds || [],
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingTask) return
+    try {
+      const updated = await taskService.updateTask(editingTask.id, {
+        title: editingForm.title.trim(),
+        description: editingForm.description.trim() || undefined,
+        status: editingForm.status,
+        priority: editingForm.priority,
+        assigneeId: editingForm.assigneeId === "__none__" ? undefined : editingForm.assigneeId,
+        editorIds: editingForm.editorIds,
+      })
+      setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)))
+      setEditingTask(null)
+      toast.success("Задача обновлена")
+    } catch (err) {
+      toast.error(extractApiErrorMessage(err))
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deletingTask) return
+    try {
+      await taskService.deleteTask(deletingTask.id)
+      setTasks((prev) => prev.filter((task) => task.id !== deletingTask.id))
+      setDeletingTask(null)
+      toast.success("Задача удалена")
+    } catch (err) {
+      toast.error(extractApiErrorMessage(err))
+    }
   }
 
   return (
@@ -184,38 +247,30 @@ export default function TasksPage() {
               <CardDescription>Выберите команду и проект</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2">
-              <select
-                name="team"
-                value={selectedTeamId}
-                onChange={(e) => setSelectedTeamId(e.target.value)}
-                className="h-11 rounded-md border border-border bg-background px-3 text-sm text-foreground"
-                required
-              >
-                <option value="" disabled>
-                  Выберите команду
-                </option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                name="project"
-                value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="h-11 rounded-md border border-border bg-background px-3 text-sm text-foreground"
-                required
-              >
-                <option value="" disabled>
-                  Выберите проект
-                </option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                <SelectTrigger aria-label="Команда">
+                  <SelectValue placeholder="Выберите команду" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger aria-label="Проект">
+                  <SelectValue placeholder="Выберите проект" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
@@ -234,36 +289,44 @@ export default function TasksPage() {
                   required
                   className="h-11 md:col-span-2"
                 />
-                <Input
+                <Textarea
                   name="description"
                   placeholder="Описание (опционально)"
                   value={form.description}
-                  onChange={handleChange}
-                  className="h-11 md:col-span-2"
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="md:col-span-2"
                 />
-                <select
-                  name="status"
+                <Select
                   value={form.status}
-                  onChange={handleChange}
-                  className="h-11 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, status: value as TaskResponse["status"] }))}
                 >
-                  <option value="TODO">Новая</option>
-                  <option value="IN_PROGRESS">В работе</option>
-                  <option value="IN_REVIEW">На ревью</option>
-                  <option value="DONE">Готово</option>
-                  <option value="BLOCKED">Блок</option>
-                </select>
-                <select
-                  name="priority"
+                  <SelectTrigger aria-label="Статус задачи">
+                    <SelectValue placeholder="Статус" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODO">Новая</SelectItem>
+                    <SelectItem value="IN_PROGRESS">В работе</SelectItem>
+                    <SelectItem value="IN_REVIEW">На ревью</SelectItem>
+                    <SelectItem value="DONE">Готово</SelectItem>
+                    <SelectItem value="BLOCKED">Блок</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
                   value={form.priority}
-                  onChange={handleChange}
-                  className="h-11 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, priority: value as TaskResponse["priority"] }))
+                  }
                 >
-                  <option value="LOW">Низкий</option>
-                  <option value="MEDIUM">Средний</option>
-                  <option value="HIGH">Высокий</option>
-                  <option value="URGENT">Срочный</option>
-                </select>
+                  <SelectTrigger aria-label="Приоритет">
+                    <SelectValue placeholder="Приоритет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Низкий</SelectItem>
+                    <SelectItem value="MEDIUM">Средний</SelectItem>
+                    <SelectItem value="HIGH">Высокий</SelectItem>
+                    <SelectItem value="URGENT">Срочный</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   type="submit"
                   disabled={isCreating || !selectedProjectId}
@@ -331,6 +394,18 @@ export default function TasksPage() {
                         {new Date(task.createdAt).toLocaleDateString()}
                       </span>
                     </div>
+                    {canEdit(task) && (
+                      <div className="flex gap-2 pt-2">
+                        <Button size="sm" variant="outline" onClick={() => handleStartEdit(task)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Редактировать
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => setDeletingTask(task)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Удалить
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -338,6 +413,153 @@ export default function TasksPage() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={Boolean(editingTask)}
+        onOpenChange={(open) => (open ? null : setEditingTask(null))}
+        title="Редактирование задачи"
+        description={editingTask ? `Задача: ${editingTask.title}` : undefined}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditingTask(null)}>
+              Отмена
+            </Button>
+            <Button onClick={handleSaveEdit}>Сохранить</Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <div className="text-sm font-medium text-foreground">Заголовок</div>
+            <Input
+              value={editingForm.title}
+              onChange={(e) => setEditingForm((prev) => ({ ...prev, title: e.target.value }))}
+              className="h-11"
+              aria-label="Заголовок задачи"
+            />
+          </div>
+          <div className="grid gap-2">
+            <div className="text-sm font-medium text-foreground">Описание</div>
+            <Textarea
+              value={editingForm.description}
+              onChange={(e) => setEditingForm((prev) => ({ ...prev, description: e.target.value }))}
+              aria-label="Описание задачи"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <div className="text-sm font-medium text-foreground">Статус</div>
+                <Select
+                  value={editingForm.status}
+                  onValueChange={(value) =>
+                    setEditingForm((prev) => ({ ...prev, status: value as TaskResponse["status"] }))
+                  }
+                >
+                  <SelectTrigger aria-label="Статус">
+                    <SelectValue placeholder="Статус" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TODO">Новая</SelectItem>
+                    <SelectItem value="IN_PROGRESS">В работе</SelectItem>
+                    <SelectItem value="IN_REVIEW">На ревью</SelectItem>
+                    <SelectItem value="DONE">Готово</SelectItem>
+                    <SelectItem value="BLOCKED">Блок</SelectItem>
+                  </SelectContent>
+                </Select>
+            </div>
+            <div className="grid gap-2">
+              <div className="text-sm font-medium text-foreground">Приоритет</div>
+                <Select
+                  value={editingForm.priority}
+                  onValueChange={(value) =>
+                    setEditingForm((prev) => ({ ...prev, priority: value as TaskResponse["priority"] }))
+                  }
+                >
+                  <SelectTrigger aria-label="Приоритет">
+                    <SelectValue placeholder="Приоритет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Низкий</SelectItem>
+                    <SelectItem value="MEDIUM">Средний</SelectItem>
+                    <SelectItem value="HIGH">Высокий</SelectItem>
+                    <SelectItem value="URGENT">Срочный</SelectItem>
+                  </SelectContent>
+                </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <div className="text-sm font-medium text-foreground">Исполнитель</div>
+            <Select
+              value={editingForm.assigneeId}
+              onValueChange={(value) => setEditingForm((prev) => ({ ...prev, assigneeId: value }))}
+            >
+              <SelectTrigger aria-label="Исполнитель">
+                <SelectValue placeholder="Не назначен" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Не назначен</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.username || u.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <div className="text-sm font-medium text-foreground">Кто может редактировать</div>
+            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#232730]/60">
+              <div className="mt-1 max-h-72 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#1a1e26]">
+                <div className="grid gap-1">
+                  {users.map((u) => {
+                    const checked = editingForm.editorIds.includes(u.id)
+                    return (
+                      <label
+                        key={u.id}
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted/50 dark:hover:bg-[#232730]"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-foreground">{u.username || u.email}</div>
+                          <div className="truncate text-xs text-muted-foreground">{u.email}</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? Array.from(new Set([...editingForm.editorIds, u.id]))
+                              : editingForm.editorIds.filter((id) => id !== u.id)
+                            setEditingForm((prev) => ({ ...prev, editorIds: next }))
+                          }}
+                          className="h-4 w-4 accent-primary"
+                          aria-label={`Редактор: ${u.username || u.email}`}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Создатель останется редактором автоматически.
+              </div>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+
+      <AlertDialog
+        open={Boolean(deletingTask)}
+        onOpenChange={(open) => (open ? null : setDeletingTask(null))}
+        title="Удалить задачу?"
+        description={deletingTask ? `Задача “${deletingTask.title}” будет удалена без возможности восстановления.` : undefined}
+        confirmText="Удалить"
+        cancelText="Отмена"
+        onConfirm={handleDelete}
+        isDanger
+      />
     </MainLayout>
   )
 }

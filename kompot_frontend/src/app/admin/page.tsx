@@ -1,20 +1,24 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { adminService } from "@/services"
 import { AdminStatsResponse, AdminTeamSummary, AdminUserSummary } from "@/types/api"
-import { Users, FolderKanban, Shield, BarChart3, Activity, AlertTriangle, Clock3 } from "lucide-react"
+import { Users, FolderKanban, Shield, Activity, AlertTriangle, Clock3 } from "lucide-react"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
+import { useAppSelector } from "@/store/hooks"
 
 const formatDate = (value: string) => new Date(value).toLocaleDateString()
 
 export default function AdminPage() {
+  const router = useRouter()
+  const { user, isLoading: isAuthLoading } = useAppSelector((state) => state.auth)
   const [stats, setStats] = useState<AdminStatsResponse | null>(null)
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [teams, setTeams] = useState<AdminTeamSummary[]>([])
@@ -34,6 +38,13 @@ export default function AdminPage() {
   )
 
   useEffect(() => {
+    if (!user) {
+      return
+    }
+    if (user.role !== "ADMIN") {
+      router.replace("/dashboard")
+      return
+    }
     const load = async () => {
       setIsLoading(true)
       try {
@@ -52,7 +63,26 @@ export default function AdminPage() {
       }
     }
     load()
-  }, [])
+  }, [router, user])
+
+  if (isAuthLoading || !user) {
+    return (
+      <MainLayout>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Загрузка...
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (user.role !== "ADMIN") {
+    return (
+      <MainLayout>
+        <div className="text-sm text-muted-foreground">Доступ запрещен</div>
+      </MainLayout>
+    )
+  }
 
   return (
     <MainLayout>

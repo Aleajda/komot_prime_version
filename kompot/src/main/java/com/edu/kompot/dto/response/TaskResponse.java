@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -22,6 +23,7 @@ public class TaskResponse {
 	private UUID creatorId;
 	private Task.TaskStatus status;
 	private Task.TaskPriority priority;
+	private Set<UUID> editorIds;
 	private LocalDateTime dueDate;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;

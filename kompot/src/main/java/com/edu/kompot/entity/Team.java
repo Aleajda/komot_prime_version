@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +36,12 @@ public class Team {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "owner_id", nullable = false)
 	private User owner;
+
+	@ElementCollection(fetch = FetchType.EAGER)
+	@CollectionTable(name = "team_editors", joinColumns = @JoinColumn(name = "team_id"))
+	@Column(name = "user_id", nullable = false)
+	@Builder.Default
+	private Set<UUID> editorIds = new HashSet<>();
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)

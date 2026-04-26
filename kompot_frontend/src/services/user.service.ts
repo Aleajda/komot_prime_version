@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api-client"
-import { UserResponse } from "@/types/api"
+import { PageResponse, UserResponse } from "@/types/api"
 
 export const userService = {
   getCurrentUser: async (): Promise<UserResponse> => {
@@ -22,6 +22,13 @@ export const userService = {
       params: { query },
     })
     return response.data
+  },
+
+  getAllUsers: async (page = 0, size = 200): Promise<UserResponse[]> => {
+    const response = await apiClient.get<PageResponse<UserResponse>>("/users", {
+      params: { page, size },
+    })
+    return response.data.content
   },
 }
 

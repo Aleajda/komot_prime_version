@@ -4,6 +4,7 @@ import com.edu.kompot.dto.response.ProjectResponse;
 import com.edu.kompot.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,8 +23,13 @@ public class ProjectController {
 	}
 
 	@PostMapping("/teams/{teamId}/projects")
-	public ResponseEntity<ProjectResponse> createProject(@PathVariable UUID teamId, @RequestBody ProjectResponse projectResponse) {
-		return ResponseEntity.ok(projectService.createProject(projectResponse, teamId));
+	public ResponseEntity<ProjectResponse> createProject(
+			@PathVariable UUID teamId,
+			@RequestBody ProjectResponse projectResponse,
+			Authentication authentication
+	) {
+		UUID userId = UUID.fromString(authentication.getName());
+		return ResponseEntity.ok(projectService.createProject(projectResponse, teamId, userId));
 	}
 
 	@GetMapping("/projects/{id}")
@@ -32,13 +38,19 @@ public class ProjectController {
 	}
 
 	@PutMapping("/projects/{id}")
-	public ResponseEntity<ProjectResponse> updateProject(@PathVariable UUID id, @RequestBody ProjectResponse projectResponse) {
-		return ResponseEntity.ok(projectService.updateProject(id, projectResponse));
+	public ResponseEntity<ProjectResponse> updateProject(
+			@PathVariable UUID id,
+			@RequestBody ProjectResponse projectResponse,
+			Authentication authentication
+	) {
+		UUID userId = UUID.fromString(authentication.getName());
+		return ResponseEntity.ok(projectService.updateProject(id, projectResponse, userId));
 	}
 
 	@DeleteMapping("/projects/{id}")
-	public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
-		projectService.deleteProject(id);
+	public ResponseEntity<Void> deleteProject(@PathVariable UUID id, Authentication authentication) {
+		UUID userId = UUID.fromString(authentication.getName());
+		projectService.deleteProject(id, userId);
 		return ResponseEntity.noContent().build();
 	}
 }

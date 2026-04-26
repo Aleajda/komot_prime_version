@@ -34,13 +34,19 @@ public class TaskController {
 	}
 
 	@PutMapping("/tasks/{id}")
-	public ResponseEntity<TaskResponse> updateTask(@PathVariable UUID id, @RequestBody TaskResponse taskResponse) {
-		return ResponseEntity.ok(taskService.updateTask(id, taskResponse));
+	public ResponseEntity<TaskResponse> updateTask(
+			@PathVariable UUID id,
+			@RequestBody TaskResponse taskResponse,
+			Authentication authentication
+	) {
+		UUID userId = UUID.fromString(authentication.getName());
+		return ResponseEntity.ok(taskService.updateTask(id, taskResponse, userId));
 	}
 
 	@DeleteMapping("/tasks/{id}")
-	public ResponseEntity<Void> deleteTask(@PathVariable UUID id) {
-		taskService.deleteTask(id);
+	public ResponseEntity<Void> deleteTask(@PathVariable UUID id, Authentication authentication) {
+		UUID userId = UUID.fromString(authentication.getName());
+		taskService.deleteTask(id, userId);
 		return ResponseEntity.noContent().build();
 	}
 }

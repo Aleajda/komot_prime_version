@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -19,6 +20,7 @@ public class ProjectResponse {
 	private String description;
 	private UUID teamId;
 	private Project.ProjectStatus status;
+	private Set<UUID> editorIds;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 }

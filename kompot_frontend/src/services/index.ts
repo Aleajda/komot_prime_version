@@ -6,5 +6,6 @@ export * from "./team.service"
 export * from "./chat.service"
 export * from "./admin.service"
 export * from "./friendship.service"
+export * from "./search.service"
 export { webSocketService } from "./websocket.service"
 

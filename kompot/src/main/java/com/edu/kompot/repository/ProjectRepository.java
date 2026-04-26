@@ -10,5 +10,8 @@ import java.util.UUID;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
 	List<Project> findByTeamId(UUID teamId);
+	long countByStatus(Project.ProjectStatus status);
+	long countByTeamId(UUID teamId);
+	List<Project> findTop10ByTeamIdInAndNameContainingIgnoreCaseOrderByUpdatedAtDesc(List<UUID> teamIds, String query);
 }
 

@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -37,6 +39,12 @@ public class Project {
 	@Column(nullable = false)
 	@Builder.Default
 	private ProjectStatus status = ProjectStatus.ACTIVE;
+
+	@ElementCollection(fetch = FetchType.EAGER)
+	@CollectionTable(name = "project_editors", joinColumns = @JoinColumn(name = "project_id"))
+	@Column(name = "user_id", nullable = false)
+	@Builder.Default
+	private Set<UUID> editorIds = new HashSet<>();
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)

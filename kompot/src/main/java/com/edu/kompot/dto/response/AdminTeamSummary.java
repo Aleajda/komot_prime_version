@@ -6,30 +6,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TeamResponse {
+public class AdminTeamSummary {
 	private UUID id;
 	private String name;
-	private String description;
-	private String avatar;
-	private UUID ownerId;
-	private Set<UUID> editorIds;
+	private long members;
+	private long projects;
 	private LocalDateTime createdAt;
-	private LocalDateTime updatedAt;
 }
-
-
-
-
-
-
-
-
-
-

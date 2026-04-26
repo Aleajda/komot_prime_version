@@ -36,6 +36,7 @@ export interface ProjectResponse {
   description?: string
   status: "ACTIVE" | "ARCHIVED" | "COMPLETED"
   teamId: string
+  editorIds: string[]
   createdAt: string
   updatedAt: string
 }
@@ -50,6 +51,7 @@ export interface TaskResponse {
   assigneeId?: string
   creatorId: string
   dueDate?: string
+  editorIds: string[]
   createdAt: string
   updatedAt: string
 }
@@ -60,6 +62,7 @@ export interface TeamResponse {
   description?: string
   avatar?: string
   ownerId: string
+  editorIds: string[]
   createdAt: string
   updatedAt: string
 }
@@ -99,6 +102,14 @@ export interface ApiError {
   status?: number
 }
 
+export interface PageResponse<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  size: number
+  number: number
+}
+
 export interface AdminStatsResponse {
   totalUsers: number
   activeProjects: number
@@ -125,6 +136,27 @@ export interface AdminTeamSummary {
   members: number
   projects: number
   createdAt: string
+}
+
+export interface SearchProjectHint {
+  id: string
+  name: string
+  teamId: string
+  teamName: string
+}
+
+export interface SearchTaskHint {
+  id: string
+  title: string
+  projectId: string
+  projectName: string
+  teamId: string
+  teamName: string
+}
+
+export interface SearchResponse {
+  projects: SearchProjectHint[]
+  tasks: SearchTaskHint[]
 }
 
 export interface FriendshipResponse {
