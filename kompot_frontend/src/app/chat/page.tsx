@@ -45,6 +45,7 @@ export default function ChatPage() {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false)
+  const [chatMembersByChatId, setChatMembersByChatId] = useState<Record<string, UserResponse[]>>({})
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -116,6 +117,45 @@ export default function ChatPage() {
     }
   }, [searchQuery, dispatch])
 
+  useEffect(() => {
+    const loadChatMembers = async () => {
+      if (chats.length === 0) {
+        return
+      }
+
+      const { chatService } = await import("@/services")
+      const chatsToLoad = chats.filter((chat) => !chatMembersByChatId[chat.id])
+
+      if (chatsToLoad.length === 0) {
+        return
+      }
+
+      const loadedMembers = await Promise.all(
+        chatsToLoad.map(async (chat) => {
+          try {
+            const members = await chatService.getChatMembers(chat.id)
+            return { chatId: chat.id, users: members.map((member) => member.user) }
+          } catch {
+            return null
+          }
+        })
+      )
+
+      setChatMembersByChatId((prev) => {
+        const next = { ...prev }
+        loadedMembers.forEach((item) => {
+          if (!item) {
+            return
+          }
+          next[item.chatId] = item.users
+        })
+        return next
+      })
+    }
+
+    loadChatMembers()
+  }, [chats, chatMembersByChatId])
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -136,7 +176,7 @@ export default function ChatPage() {
 
       webSocketService.sendMessage(activeChatId, messageData)
       setMessage("")
-    } catch (error) {
+    } catch {
       toast.error("Ошибка отправки сообщения")
     } finally {
       setIsSending(false)
@@ -154,7 +194,7 @@ export default function ChatPage() {
       setShowUserSearch(false)
       setSearchQuery("")
       dispatch(clearUsers())
-    } catch (error) {
+    } catch {
       toast.error("Ошибка создания чата")
     }
   }
@@ -192,7 +232,7 @@ export default function ChatPage() {
       setGroupName("")
       setSelectedUsers([])
       toast.success("Группа создана")
-    } catch (error) {
+    } catch {
       toast.error("Ошибка создания группы")
     } finally {
       setIsCreatingGroup(false)
@@ -203,9 +243,16 @@ export default function ChatPage() {
     if (chat.name) {
       return chat.name
     }
+
     if (chat.type === "DIRECT") {
+      const chatMembers = chatMembersByChatId[chat.id] || []
+      const otherUser = chatMembers.find((member) => String(member.id) !== String(currentUser?.id))
+      if (otherUser) {
+        return otherUser.username || otherUser.email
+      }
       return "Личный чат"
     }
+
     return "Чат"
   }
 
@@ -213,10 +260,17 @@ export default function ChatPage() {
     if (String(senderId) === String(currentUser?.id)) {
       return "Вы"
     }
-    const chat = chats.find((c) => c.id === activeChatId)
-    if (chat) {
-      return "Пользователь"
+
+    if (!activeChatId) {
+      return "Неизвестный"
     }
+
+    const chatMembers = chatMembersByChatId[activeChatId] || []
+    const sender = chatMembers.find((member) => String(member.id) === String(senderId))
+    if (sender) {
+      return sender.username || sender.email
+    }
+
     return "Неизвестный"
   }
 

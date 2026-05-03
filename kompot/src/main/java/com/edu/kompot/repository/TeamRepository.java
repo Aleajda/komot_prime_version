@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface TeamRepository extends JpaRepository<Team, UUID> {
 	List<Team> findByOwnerId(UUID ownerId);
+	List<Team> findByEditorIdsContaining(UUID userId);
 }
 
