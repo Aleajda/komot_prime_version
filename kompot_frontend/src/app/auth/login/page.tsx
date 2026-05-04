@@ -27,7 +27,7 @@ export default function LoginPage() {
     e.preventDefault()
     try {
       await dispatch(login({ email, password })).unwrap()
-      router.push("/dashboard")
+      router.replace("/dashboard")
     } catch (err) {
       console.error("Ошибка входа:", err)
     }

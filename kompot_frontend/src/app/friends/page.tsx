@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { MainLayout } from "@/components/layout/main-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { friendshipService, userService, chatService } from "@/services"
 import { UserResponse, FriendshipResponse } from "@/types/api"
 import { UserPlus, Check, X, Users, Search, MessageSquare, Loader2 } from "lucide-react"
@@ -135,7 +136,7 @@ export default function FriendsPage() {
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-4xl h-full flex flex-col space-y-6 overflow-hidden">
+      <div className="mx-auto flex h-full max-w-4xl min-h-0 flex-col space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Друзья</h1>
@@ -188,17 +189,13 @@ export default function FriendsPage() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : friends.length === 0 && followers.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium mb-2">Друзей пока нет</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Найдите пользователей и добавьте их в друзья
-                    </p>
-                    <Button onClick={() => setActiveTab("search")} variant="outline">
-                      <Search className="mr-2 h-4 w-4" />
-                      Найти пользователей
-                    </Button>
-                  </div>
+                  <EmptyState
+                    icon={Users}
+                    title="Друзей пока нет"
+                    description="Найдите пользователей и добавьте их в друзья"
+                    actionLabel="Найти пользователей"
+                    onAction={() => setActiveTab("search")}
+                  />
                 ) : (
                   <>
                     {friends.length > 0 && (
@@ -294,13 +291,11 @@ export default function FriendsPage() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : pendingRequests.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <UserPlus className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium mb-2">Заявок нет</p>
-                    <p className="text-sm text-muted-foreground">
-                      Когда вам отправят заявку в друзья, она появится здесь
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={UserPlus}
+                    title="Заявок нет"
+                    description="Когда вам отправят заявку в друзья, она появится здесь"
+                  />
                 ) : (
                   <div className="space-y-3">
                     {pendingRequests.map((request) => (
@@ -362,20 +357,17 @@ export default function FriendsPage() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : searchQuery.trim().length < 2 ? (
-                  <div className="py-12 text-center">
-                    <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium mb-2">Поиск пользователей</p>
-                    <p className="text-sm text-muted-foreground">
-                      Введите имя или email для поиска пользователей
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={Search}
+                    title="Поиск пользователей"
+                    description="Введите имя или email для поиска пользователей"
+                  />
                 ) : users.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <p className="text-lg font-medium mb-2">Пользователи не найдены</p>
-                    <p className="text-sm text-muted-foreground">
-                      Попробуйте изменить запрос поиска
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={Search}
+                    title="Пользователи не найдены"
+                    description="Попробуйте изменить запрос поиска"
+                  />
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {users.map((user) => {

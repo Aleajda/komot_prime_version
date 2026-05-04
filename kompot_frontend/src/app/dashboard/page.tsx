@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { FolderKanban, CheckSquare, Users, TrendingUp, Loader2, Clock } from "lucide-react"
 import { teamService, projectService, taskService } from "@/services"
 import { TeamResponse, ProjectResponse, TaskResponse } from "@/types/api"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
-import { useAppSelector } from "@/store/hooks"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 const formatTimeAgo = (date: string) => {
@@ -32,7 +33,7 @@ const calculateProgress = (tasks: TaskResponse[]) => {
 }
 
 export default function DashboardPage() {
-  const currentUser = useAppSelector((state) => state.auth.user)
+  const router = useRouter()
   const [teams, setTeams] = useState<TeamResponse[]>([])
   const [projects, setProjects] = useState<ProjectResponse[]>([])
   const [allTasks, setAllTasks] = useState<TaskResponse[]>([])
@@ -204,13 +205,13 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {recentProjects.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FolderKanban className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Нет активных проектов</p>
-                  <Link href="/projects" className="text-xs text-primary hover:underline mt-2 inline-block">
-                    Создать проект
-                  </Link>
-                </div>
+                <EmptyState
+                  icon={FolderKanban}
+                  title="Нет активных проектов"
+                  description="Создайте проект, чтобы начать работу команды"
+                  actionLabel="Перейти к проектам"
+                  onAction={() => router.push("/projects")}
+                />
               ) : (
                 <div className="space-y-4">
                   {recentProjects.map((project) => (
@@ -248,10 +249,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {recentActivity.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Нет активности</p>
-                </div>
+                <EmptyState icon={Clock} title="Нет активности" description="Пока не было действий по задачам и проектам" />
               ) : (
                 <div className="space-y-4">
                   {recentActivity.map((activity, idx) => (

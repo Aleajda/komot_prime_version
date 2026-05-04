@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { getThemeBootInlineScript } from "@/lib/theme-storage";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ReduxProvider } from "@/components/providers/redux-provider";
 import { Toaster } from "sonner";
@@ -27,6 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: getThemeBootInlineScript() }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

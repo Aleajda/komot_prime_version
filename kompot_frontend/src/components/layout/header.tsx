@@ -31,7 +31,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
 
   const handleLogoutClick = async () => {
     await dispatch(logout())
-    router.push("/auth/login")
+    router.replace("/auth/login")
   }
 
   useEffect(() => {

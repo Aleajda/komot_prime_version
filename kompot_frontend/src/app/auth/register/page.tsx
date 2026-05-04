@@ -46,7 +46,7 @@ export default function RegisterPage() {
           lastName: formData.lastName || undefined,
         })
       ).unwrap()
-      router.push("/dashboard")
+      router.replace("/dashboard")
     } catch (err) {
       console.error("Ошибка регистрации:", err)
     }

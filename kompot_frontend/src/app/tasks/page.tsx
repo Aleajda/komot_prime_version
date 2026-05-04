@@ -6,15 +6,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Dialog } from "@/components/ui/dialog"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { projectService, taskService, teamService } from "@/services"
 import { ProjectResponse, TaskResponse, TeamResponse, UserResponse } from "@/types/api"
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react"
+import { CheckSquare, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { userService } from "@/services"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
+import { TASK_DESCRIPTION_MAX_LENGTH, TASK_TITLE_MAX_LENGTH } from "@/lib/form-limits"
+import { formatUserIdSnippet, normalizeUserId } from "@/lib/user-id"
+import { canParticipateInProject, isUserOnProjectRoster } from "@/lib/project-roster"
 import { useAppSelector } from "@/store/hooks"
 
 const STATUS_LABELS: Record<TaskResponse["status"], string> = {
@@ -40,11 +44,13 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskResponse[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [createTaskOpen, setCreateTaskOpen] = useState(false)
   const [form, setForm] = useState({
     title: "",
     description: "",
     status: "TODO" as TaskResponse["status"],
     priority: "MEDIUM" as TaskResponse["priority"],
+    assigneeId: "__none__" as string,
   })
   const [userCache, setUserCache] = useState<Record<string, UserResponse>>({})
   const [users, setUsers] = useState<UserResponse[]>([])
@@ -57,18 +63,24 @@ export default function TasksPage() {
     status: "TODO" as TaskResponse["status"],
     priority: "MEDIUM" as TaskResponse["priority"],
     assigneeId: "__none__",
-    editorIds: [] as string[],
   })
 
   useEffect(() => {
     const loadTeams = async () => {
       try {
+        const usersList = await userService.getAllUsers()
+        setUsers(usersList)
         const data = await teamService.getUserTeams()
         setTeams(data)
-        setUsers(await userService.getAllUsers())
-        if (data.length > 0) {
-          setSelectedTeamId(data[0].id)
-        }
+        setSelectedTeamId((previous) => {
+          if (data.length === 0) {
+            return ""
+          }
+          if (previous && data.some((team) => team.id === previous)) {
+            return previous
+          }
+          return data[0].id
+        })
       } catch (err) {
         toast.error(extractApiErrorMessage(err))
       }
@@ -86,7 +98,15 @@ export default function TasksPage() {
       try {
         const data = await projectService.getTeamProjects(selectedTeamId)
         setProjects(data)
-        setSelectedProjectId(data[0]?.id || "")
+        setSelectedProjectId((previous) => {
+          if (data.length === 0) {
+            return ""
+          }
+          if (previous && data.some((project) => project.id === previous)) {
+            return previous
+          }
+          return data[0].id
+        })
       } catch (err) {
         toast.error(extractApiErrorMessage(err))
       }
@@ -118,7 +138,7 @@ export default function TasksPage() {
       const ids = tasks
         .flatMap((t) => [t.assigneeId, t.creatorId])
         .filter((id): id is string => Boolean(id))
-        .filter((id) => !userCache[id])
+        .filter((id) => !Object.keys(userCache).some((key) => normalizeUserId(key) === normalizeUserId(id)))
 
       if (ids.length === 0) return
 
@@ -143,26 +163,28 @@ export default function TasksPage() {
     fetchUsers()
   }, [tasks, userCache])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
-  }
+  const resetCreateTaskForm = () =>
+    setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM", assigneeId: "__none__" })
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleConfirmCreateTask = async () => {
     if (!selectedProjectId || !form.title.trim()) {
       return
     }
     setIsCreating(true)
     try {
-      const created = await taskService.createTask(selectedProjectId, {
+      const createPayload: Partial<TaskResponse> = {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
         status: form.status,
         priority: form.priority,
-      })
+      }
+      if (form.assigneeId !== "__none__") {
+        createPayload.assigneeId = form.assigneeId
+      }
+      const created = await taskService.createTask(selectedProjectId, createPayload)
       setTasks((prev) => [created, ...prev])
-      setForm({ title: "", description: "", status: "TODO", priority: "MEDIUM" })
+      resetCreateTaskForm()
+      setCreateTaskOpen(false)
       toast.success("Задача создана")
     } catch (err) {
       toast.error(extractApiErrorMessage(err))
@@ -175,18 +197,75 @@ export default function TasksPage() {
     () => projects.find((p) => p.id === selectedProjectId)?.name || "",
     [projects, selectedProjectId]
   )
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId]
+  )
+  const selectedTeam = useMemo(
+    () => teams.find((team) => team.id === selectedTeamId),
+    [teams, selectedTeamId]
+  )
+
+  const assignableUsersForSelectedProject = useMemo(
+    () =>
+      selectedProject
+        ? [...users]
+            .filter((u) => isUserOnProjectRoster(selectedProject, u.id))
+            .sort((a, b) =>
+              (a.username || a.email).localeCompare(b.username || b.email, "ru", { sensitivity: "base" })
+            )
+        : [],
+    [users, selectedProject]
+  )
+
+  const editingProjectForModal = useMemo(
+    () => (editingTask ? projects.find((p) => p.id === editingTask.projectId) ?? null : null),
+    [editingTask, projects]
+  )
+
+  const assignableUsersForEditModal = useMemo(() => {
+    if (!editingProjectForModal) return []
+    const roster = users.filter((u) => isUserOnProjectRoster(editingProjectForModal, u.id))
+    const base = [...roster]
+    const aid = editingTask?.assigneeId
+    if (aid) {
+      const inRoster = base.some((u) => normalizeUserId(u.id) === normalizeUserId(aid))
+      if (!inRoster) {
+        const extra = users.find((u) => normalizeUserId(u.id) === normalizeUserId(aid))
+        if (extra) base.push(extra)
+      }
+    }
+    return base.sort((a, b) =>
+      (a.username || a.email).localeCompare(b.username || b.email, "ru", { sensitivity: "base" })
+    )
+  }, [users, editingProjectForModal, editingTask?.assigneeId])
+
+  const canCreateTaskInProject = useMemo(() => {
+    if (!currentUser) return false
+    if (currentUser.role === "ADMIN") return true
+    if (!selectedProject || !selectedTeam) return false
+    if ((selectedProject.editorIds || []).includes(currentUser.id)) return true
+    if ((selectedProject.memberIds || []).includes(currentUser.id)) return true
+    if (selectedTeam.ownerId === currentUser.id) return true
+    if ((selectedTeam.editorIds || []).includes(currentUser.id)) return true
+    return false
+  }, [currentUser, selectedProject, selectedTeam])
 
   const formatUser = (id?: string) => {
     if (!id) return "Не назначен"
-    const user = userCache[id]
-    if (!user) return id
+    const normalized = normalizeUserId(id)
+    const cacheKey = Object.keys(userCache).find((key) => normalizeUserId(key) === normalized)
+    const user = cacheKey ? userCache[cacheKey] : undefined
+    if (!user) return `Пользователь ${formatUserIdSnippet(id)}…`
     return user.username || user.email
   }
 
-  const canEdit = (task: TaskResponse) => {
+  const canEditTask = (task: TaskResponse) => {
     if (!currentUser) return false
     if (currentUser.role === "ADMIN") return true
-    return (task.editorIds || []).includes(currentUser.id)
+    const proj = projects.find((p) => p.id === task.projectId) ?? null
+    const team = proj ? teams.find((t) => t.id === proj.teamId) ?? null : null
+    return canParticipateInProject(proj, team, currentUser.id)
   }
 
   const handleStartEdit = (task: TaskResponse) => {
@@ -197,21 +276,25 @@ export default function TasksPage() {
       status: task.status,
       priority: task.priority,
       assigneeId: task.assigneeId || "__none__",
-      editorIds: task.editorIds || [],
     })
   }
 
   const handleSaveEdit = async () => {
     if (!editingTask) return
     try {
-      const updated = await taskService.updateTask(editingTask.id, {
+      const payload: Partial<TaskResponse> = {
         title: editingForm.title.trim(),
         description: editingForm.description.trim() || undefined,
         status: editingForm.status,
         priority: editingForm.priority,
-        assigneeId: editingForm.assigneeId === "__none__" ? undefined : editingForm.assigneeId,
-        editorIds: editingForm.editorIds,
-      })
+        editorIds: editingTask.editorIds,
+      }
+      if (editingForm.assigneeId === "__none__") {
+        payload.assigneeCleared = true
+      } else {
+        payload.assigneeId = editingForm.assigneeId
+      }
+      const updated = await taskService.updateTask(editingTask.id, payload)
       setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)))
       setEditingTask(null)
       toast.success("Задача обновлена")
@@ -240,16 +323,15 @@ export default function TasksPage() {
           <p className="text-muted-foreground">Управление задачами выбранного проекта</p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-          <Card className="bg-card/60 backdrop-blur">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Контекст</CardTitle>
-              <CardDescription>Выберите команду и проект</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2">
-              <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                <SelectTrigger aria-label="Команда">
-                  <SelectValue placeholder="Выберите команду" />
+        <Card className="bg-card/60 backdrop-blur">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Команда и проект</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Select disabled={teams.length === 0} value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                <SelectTrigger aria-label="Команда" className="rounded-xl">
+                  <SelectValue placeholder={teams.length === 0 ? "Нет команд" : "Выберите команду"} />
                 </SelectTrigger>
                 <SelectContent>
                   {teams.map((t) => (
@@ -259,9 +341,21 @@ export default function TasksPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger aria-label="Проект">
-                  <SelectValue placeholder="Выберите проект" />
+              <Select
+                disabled={teams.length === 0 || projects.length === 0}
+                value={selectedProjectId}
+                onValueChange={setSelectedProjectId}
+              >
+                <SelectTrigger aria-label="Проект" className="rounded-xl">
+                  <SelectValue
+                    placeholder={
+                      teams.length === 0
+                        ? "Нет команд"
+                        : projects.length === 0
+                          ? "Нет проектов"
+                          : "Выберите проект"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
@@ -271,75 +365,28 @@ export default function TasksPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card/60 backdrop-blur">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Новая задача</CardTitle>
-              <CardDescription>Заполните данные и создайте карточку</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreate} className="grid gap-3 md:grid-cols-2">
-                <Input
-                  name="title"
-                  placeholder="Заголовок задачи"
-                  value={form.title}
-                  onChange={handleChange}
-                  required
-                  className="h-11 md:col-span-2"
-                />
-                <Textarea
-                  name="description"
-                  placeholder="Описание (опционально)"
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="md:col-span-2"
-                />
-                <Select
-                  value={form.status}
-                  onValueChange={(value) => setForm((prev) => ({ ...prev, status: value as TaskResponse["status"] }))}
-                >
-                  <SelectTrigger aria-label="Статус задачи">
-                    <SelectValue placeholder="Статус" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TODO">Новая</SelectItem>
-                    <SelectItem value="IN_PROGRESS">В работе</SelectItem>
-                    <SelectItem value="IN_REVIEW">На ревью</SelectItem>
-                    <SelectItem value="DONE">Готово</SelectItem>
-                    <SelectItem value="BLOCKED">Блок</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={form.priority}
-                  onValueChange={(value) =>
-                    setForm((prev) => ({ ...prev, priority: value as TaskResponse["priority"] }))
-                  }
-                >
-                  <SelectTrigger aria-label="Приоритет">
-                    <SelectValue placeholder="Приоритет" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">Низкий</SelectItem>
-                    <SelectItem value="MEDIUM">Средний</SelectItem>
-                    <SelectItem value="HIGH">Высокий</SelectItem>
-                    <SelectItem value="URGENT">Срочный</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="submit"
-                  disabled={isCreating || !selectedProjectId}
-                  className="h-11 md:col-span-2"
-                >
-                  {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Plus className="mr-2 h-4 w-4" />
-                  Создать задачу
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                type="button"
+                className="h-11 w-full rounded-xl sm:w-auto"
+                disabled={!selectedProjectId || !canCreateTaskInProject || teams.length === 0 || projects.length === 0}
+                onClick={() => {
+                  resetCreateTaskForm()
+                  setCreateTaskOpen(true)
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Новая задача
+              </Button>
+              {selectedProjectId && !canCreateTaskInProject && teams.length > 0 && projects.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Нужна роль участника или администратора проекта, либо администратор команды.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -348,39 +395,59 @@ export default function TasksPage() {
           </div>
         ) : tasks.length === 0 ? (
           <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle>Задач нет</CardTitle>
-              <CardDescription>
-                {selectedProjectId ? "Создайте первую задачу" : "Выберите проект, чтобы увидеть задачи"}
-              </CardDescription>
-            </CardHeader>
+            <CardContent>
+              <EmptyState
+                icon={CheckSquare}
+                title="Задач пока нет"
+                description={selectedProjectId ? "Создайте первую задачу в проекте" : "Выберите проект, чтобы увидеть задачи"}
+                actionLabel={
+                  selectedProjectId && canCreateTaskInProject ? "Создать задачу" : undefined
+                }
+                onAction={
+                  selectedProjectId && canCreateTaskInProject
+                    ? () => {
+                        resetCreateTaskForm()
+                        setCreateTaskOpen(true)
+                      }
+                    : undefined
+                }
+              />
+            </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {tasks.map((task) => (
-              <Card key={task.id} className="hover:shadow-lg transition-shadow bg-card/80">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{task.title}</CardTitle>
-                    <span className="rounded-full bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">
+              <Card key={task.id} className="min-w-0 max-w-full overflow-hidden hover:shadow-lg transition-shadow bg-card/80">
+                <CardHeader className="min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <CardTitle className="min-w-0 flex-1 break-words text-balance text-lg">{task.title}</CardTitle>
+                    <span className="flex-shrink-0 rounded-full bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">
                       {STATUS_LABELS[task.status]}
                     </span>
                   </div>
-                  <CardDescription>{task.description || "Без описания"}</CardDescription>
+                  <CardDescription className="break-words whitespace-pre-wrap leading-relaxed">
+                    {task.description?.trim() ? task.description : "Без описания"}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span>Проект</span>
-                      <span className="font-medium text-foreground">{currentProjectName || task.projectId}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <span className="flex-shrink-0">Проект</span>
+                      <span className="max-w-full break-words text-left font-medium text-foreground sm:max-w-[min(100%,280px)] sm:text-right">
+                        {currentProjectName || task.projectId}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Исполнитель</span>
-                      <span className="font-medium text-foreground">{formatUser(task.assigneeId)}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <span className="flex-shrink-0">Исполнитель</span>
+                      <span className="max-w-full break-words text-left font-medium text-foreground sm:max-w-[min(100%,280px)] sm:text-right">
+                        {formatUser(task.assigneeId)}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span>Создал</span>
-                      <span className="font-medium text-foreground">{formatUser(task.creatorId)}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <span className="flex-shrink-0">Создал</span>
+                      <span className="max-w-full break-words text-left font-medium text-foreground sm:max-w-[min(100%,280px)] sm:text-right">
+                        {formatUser(task.creatorId)}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Приоритет</span>
@@ -394,7 +461,7 @@ export default function TasksPage() {
                         {new Date(task.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    {canEdit(task) && (
+                    {canEditTask(task) && (
                       <div className="flex gap-2 pt-2">
                         <Button size="sm" variant="outline" onClick={() => handleStartEdit(task)}>
                           <Pencil className="mr-2 h-4 w-4" />
@@ -415,6 +482,151 @@ export default function TasksPage() {
       </div>
 
       <Dialog
+        open={createTaskOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreateTaskOpen(false)
+            resetCreateTaskForm()
+          }
+        }}
+        title="Новая задача"
+        description={
+          currentProjectName
+            ? `Проект: ${currentProjectName}. Заполните карточку задачи.`
+            : "Заполните данные задачи."
+        }
+        footer={
+          <>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl sm:w-auto"
+              onClick={() => {
+                setCreateTaskOpen(false)
+                resetCreateTaskForm()
+              }}
+            >
+              Отмена
+            </Button>
+            <Button
+              className="w-full rounded-xl sm:w-auto"
+              disabled={isCreating || !selectedProjectId || !form.title.trim() || !canCreateTaskInProject}
+              onClick={() => void handleConfirmCreateTask()}
+            >
+              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Создать
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-5">
+          <div className="grid gap-2">
+            <label htmlFor="task-create-title" className="text-sm font-medium text-foreground">
+              Заголовок
+            </label>
+            <Input
+              id="task-create-title"
+              placeholder="Кратко, что нужно сделать"
+              value={form.title}
+              onChange={(e) => {
+                const next = e.target.value
+                if (next.length > TASK_TITLE_MAX_LENGTH) return
+                setForm((prev) => ({ ...prev, title: next }))
+              }}
+              maxLength={TASK_TITLE_MAX_LENGTH}
+              className="h-11 rounded-xl"
+              autoFocus
+            />
+            <p className="text-right text-xs text-muted-foreground">
+              {form.title.length}/{TASK_TITLE_MAX_LENGTH}
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <label htmlFor="task-create-description" className="text-sm font-medium text-foreground">
+              Описание <span className="font-normal text-muted-foreground">(необязательно)</span>
+            </label>
+            <Textarea
+              id="task-create-description"
+              placeholder="Детали, критерии приёмки, ссылки…"
+              value={form.description}
+              onChange={(e) => {
+                const next = e.target.value
+                if (next.length > TASK_DESCRIPTION_MAX_LENGTH) return
+                setForm((prev) => ({ ...prev, description: next }))
+              }}
+              maxLength={TASK_DESCRIPTION_MAX_LENGTH}
+              rows={6}
+              className="min-h-[160px] rounded-xl"
+            />
+            <p className="text-right text-xs text-muted-foreground">
+              {form.description.length}/{TASK_DESCRIPTION_MAX_LENGTH}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <span className="text-sm font-medium text-foreground">Статус</span>
+              <Select
+                value={form.status}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, status: value as TaskResponse["status"] }))
+                }
+              >
+                <SelectTrigger aria-label="Статус задачи" className="rounded-xl">
+                  <SelectValue placeholder="Статус" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODO">Новая</SelectItem>
+                  <SelectItem value="IN_PROGRESS">В работе</SelectItem>
+                  <SelectItem value="IN_REVIEW">На ревью</SelectItem>
+                  <SelectItem value="DONE">Готово</SelectItem>
+                  <SelectItem value="BLOCKED">Блок</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium text-foreground">Приоритет</span>
+              <Select
+                value={form.priority}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, priority: value as TaskResponse["priority"] }))
+                }
+              >
+                <SelectTrigger aria-label="Приоритет" className="rounded-xl">
+                  <SelectValue placeholder="Приоритет" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Низкий</SelectItem>
+                  <SelectItem value="MEDIUM">Средний</SelectItem>
+                  <SelectItem value="HIGH">Высокий</SelectItem>
+                  <SelectItem value="URGENT">Срочный</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <span className="text-sm font-medium text-foreground">Исполнитель</span>
+            <p className="text-xs text-muted-foreground">Только из состава проекта (админы и участники).</p>
+            <Select
+              disabled={!selectedProject || assignableUsersForSelectedProject.length === 0}
+              value={form.assigneeId}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, assigneeId: value }))}
+            >
+              <SelectTrigger aria-label="Исполнитель" className="rounded-xl">
+                <SelectValue placeholder="Не назначен" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Не назначен</SelectItem>
+                {assignableUsersForSelectedProject.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.username || u.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
         open={Boolean(editingTask)}
         onOpenChange={(open) => (open ? null : setEditingTask(null))}
         title="Редактирование задачи"
@@ -430,20 +642,42 @@ export default function TasksPage() {
       >
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <div className="text-sm font-medium text-foreground">Заголовок</div>
+            <div className="flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+              <span>Заголовок</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {editingForm.title.length}/{TASK_TITLE_MAX_LENGTH}
+              </span>
+            </div>
             <Input
               value={editingForm.title}
-              onChange={(e) => setEditingForm((prev) => ({ ...prev, title: e.target.value }))}
+              onChange={(e) => {
+                const next = e.target.value
+                if (next.length > TASK_TITLE_MAX_LENGTH) return
+                setEditingForm((prev) => ({ ...prev, title: next }))
+              }}
+              maxLength={TASK_TITLE_MAX_LENGTH}
               className="h-11"
               aria-label="Заголовок задачи"
             />
           </div>
           <div className="grid gap-2">
-            <div className="text-sm font-medium text-foreground">Описание</div>
+            <div className="flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+              <span>Описание</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {editingForm.description.length}/{TASK_DESCRIPTION_MAX_LENGTH}
+              </span>
+            </div>
             <Textarea
               value={editingForm.description}
-              onChange={(e) => setEditingForm((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => {
+                const next = e.target.value
+                if (next.length > TASK_DESCRIPTION_MAX_LENGTH) return
+                setEditingForm((prev) => ({ ...prev, description: next }))
+              }}
+              maxLength={TASK_DESCRIPTION_MAX_LENGTH}
               aria-label="Описание задачи"
+              rows={4}
+              className="min-h-[120px]"
             />
           </div>
 
@@ -491,61 +725,26 @@ export default function TasksPage() {
 
           <div className="grid gap-2">
             <div className="text-sm font-medium text-foreground">Исполнитель</div>
+            <p className="text-xs text-muted-foreground">Только из состава проекта.</p>
             <Select
+              disabled={assignableUsersForEditModal.length === 0}
               value={editingForm.assigneeId}
               onValueChange={(value) => setEditingForm((prev) => ({ ...prev, assigneeId: value }))}
             >
               <SelectTrigger aria-label="Исполнитель">
-                <SelectValue placeholder="Не назначен" />
+                <SelectValue
+                  placeholder={assignableUsersForEditModal.length === 0 ? "Нет участников проекта" : "Не назначен"}
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Не назначен</SelectItem>
-                {users.map((u) => (
+                {assignableUsersForEditModal.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.username || u.email}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <div className="text-sm font-medium text-foreground">Кто может редактировать</div>
-            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#232730]/60">
-              <div className="mt-1 max-h-72 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#1a1e26]">
-                <div className="grid gap-1">
-                  {users.map((u) => {
-                    const checked = editingForm.editorIds.includes(u.id)
-                    return (
-                      <label
-                        key={u.id}
-                        className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted/50 dark:hover:bg-[#232730]"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate font-medium text-foreground">{u.username || u.email}</div>
-                          <div className="truncate text-xs text-muted-foreground">{u.email}</div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            const next = e.target.checked
-                              ? Array.from(new Set([...editingForm.editorIds, u.id]))
-                              : editingForm.editorIds.filter((id) => id !== u.id)
-                            setEditingForm((prev) => ({ ...prev, editorIds: next }))
-                          }}
-                          className="h-4 w-4 accent-primary"
-                          aria-label={`Редактор: ${u.username || u.email}`}
-                        />
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                Создатель останется редактором автоматически.
-              </div>
-            </div>
           </div>
         </div>
       </Dialog>

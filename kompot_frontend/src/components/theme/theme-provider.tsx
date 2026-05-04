@@ -1,8 +1,9 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useLayoutEffect, useRef, useState } from "react"
+import { readStoredThemeMode, THEME_STORAGE_KEY, type ThemeMode } from "@/lib/theme-storage"
 
-type Theme = "dark" | "light"
+type Theme = ThemeMode
 
 interface ThemeContextType {
   theme: Theme
@@ -13,40 +14,39 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+  // Старт с «dark» совпадает с SSR и с inline-скриптом по умолчанию; реальное значение подтягиваем в layout-эффекте без рассинхрона гидрации.
   const [theme, setTheme] = useState<Theme>("dark")
-  const [mounted, setMounted] = useState(false)
+  const didHydrateTheme = useRef(false)
 
-  useEffect(() => {
-    setMounted(true)
-    const savedTheme = localStorage.getItem("theme") as Theme | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-      setTheme(prefersDark ? "dark" : "light")
-    }
-  }, [])
-
-  useEffect(() => {
-    if (mounted) {
-      const root = document.documentElement
-      if (theme === "dark") {
-        root.classList.add("dark")
-      } else {
-        root.classList.remove("dark")
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    if (!didHydrateTheme.current) {
+      didHydrateTheme.current = true
+      const next = readStoredThemeMode()
+      // Синхронизация контекста с localStorage после SSR; без setState — рассинхрон с inline-скриптом на <html>.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- однократная гидрация темы
+      setTheme(next)
+      root.classList.toggle("dark", next === "dark")
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, next)
+      } catch {
+        /* ignore */
       }
-      localStorage.setItem("theme", theme)
+      return
     }
-  }, [theme, mounted])
+    root.classList.toggle("dark", theme === "dark")
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      /* ignore */
+    }
+  }, [theme])
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"))
   }
 
-  if (!mounted) {
-    return <>{children}</>
-  }
-
+  // Всегда оборачиваем в Provider: до mounted дочерние компоненты (Header / ThemeToggle) иначе падают на useTheme.
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}

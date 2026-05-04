@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import {
   fetchChats,
@@ -19,7 +20,7 @@ import {
 } from "@/store/slices/chatSlice"
 import { webSocketService } from "@/services"
 import { MessageResponse, ChatResponse, UserResponse } from "@/types/api"
-import { Loader2, Search, Users, X, Plus, Send, MessageSquare } from "lucide-react"
+import { ChevronUp, Loader2, Search, Users, X, Plus, Send, MessageSquare } from "lucide-react"
 import { toast } from "sonner"
 
 export default function ChatPage() {
@@ -46,6 +47,8 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false)
   const [chatMembersByChatId, setChatMembersByChatId] = useState<Record<string, UserResponse[]>>({})
+  const [visibleChatCount, setVisibleChatCount] = useState(40)
+  const [visibleMessageCount, setVisibleMessageCount] = useState(80)
   const unsubscribeRef = useRef<(() => void) | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -80,10 +83,7 @@ export default function ChatPage() {
       }
 
       unsubscribeRef.current = webSocketService.subscribeToChat(activeChatId, (message: MessageResponse) => {
-        console.log("[CHAT PAGE] Message received via WebSocket:", message)
-        console.log("[CHAT PAGE] Current messages before add:", messages[activeChatId]?.length || 0)
         dispatch(addMessage(message))
-        console.log("[CHAT PAGE] Message dispatched to Redux")
         setTimeout(() => {
           scrollToBottom()
         }, 100)
@@ -101,6 +101,10 @@ export default function ChatPage() {
       }
     }
   }, [activeChatId, dispatch])
+
+  useEffect(() => {
+    setVisibleMessageCount(80)
+  }, [activeChatId])
 
   useEffect(() => {
     scrollToBottom()
@@ -275,13 +279,25 @@ export default function ChatPage() {
   }
 
   const currentChat = chats.find((chat) => chat.id === activeChatId)
-  const currentMessages = activeChatId ? messages[activeChatId] || [] : []
+  const currentMessages = useMemo(() => {
+    if (!activeChatId) {
+      return []
+    }
+    return messages[activeChatId] || []
+  }, [activeChatId, messages])
   const isLoadingCurrentMessages = activeChatId ? isLoadingMessages[activeChatId] || false : false
+  const visibleChats = useMemo(() => chats.slice(0, visibleChatCount), [chats, visibleChatCount])
+  const visibleMessages = useMemo(
+    () => currentMessages.slice(-visibleMessageCount),
+    [currentMessages, visibleMessageCount]
+  )
+  const hasMoreChats = chats.length > visibleChatCount
+  const hasMoreMessages = currentMessages.length > visibleMessageCount
 
   return (
     <MainLayout>
-      <div className="grid h-full gap-4 lg:grid-cols-[320px_1fr] overflow-hidden">
-        <Card className="flex flex-col rounded-3xl h-full overflow-hidden">
+      <div className="grid min-h-0 gap-4 xl:h-full xl:grid-cols-[320px_1fr]">
+        <Card className="flex min-h-[300px] flex-col rounded-3xl xl:h-full overflow-hidden">
           <CardHeader className="space-y-3 border-b pb-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">Чаты</CardTitle>
@@ -411,44 +427,47 @@ export default function ChatPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : chats.length === 0 ? (
-              <div className="py-8 text-center">
-                <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                <p className="text-sm font-medium mb-1">Чатов пока нет</p>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Найдите пользователя и начните переписку
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowUserSearch(true)}
-                  className="rounded-2xl"
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Найти пользователя
-                </Button>
-              </div>
+              <EmptyState
+                icon={MessageSquare}
+                title="Чатов пока нет"
+                description="Найдите пользователя и начните переписку"
+                actionLabel="Найти пользователя"
+                onAction={() => setShowUserSearch(true)}
+              />
             ) : (
-              chats.map((chat) => (
-                <button
-                  key={chat.id}
-                  onClick={() => dispatch(setActiveChat(chat.id))}
-                  className={`w-full rounded-2xl border px-3 py-2.5 text-left text-sm transition-all ${
-                    chat.id === activeChatId
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border hover:bg-muted/50 hover:shadow-sm"
-                  }`}
-                >
-                  <p className="font-medium text-foreground truncate">{getChatName(chat)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {chat.type === "DIRECT" ? "Личный чат" : chat.type === "GROUP" ? "Группа" : "Канал"}
-                  </p>
-                </button>
-              ))
+              <>
+                {visibleChats.map((chat) => (
+                  <button
+                    key={chat.id}
+                    onClick={() => dispatch(setActiveChat(chat.id))}
+                    className={`w-full rounded-2xl border px-3 py-2.5 text-left text-sm transition-all ${
+                      chat.id === activeChatId
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border hover:bg-muted/50 hover:shadow-sm"
+                    }`}
+                  >
+                    <p className="font-medium text-foreground truncate">{getChatName(chat)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {chat.type === "DIRECT" ? "Личный чат" : chat.type === "GROUP" ? "Группа" : "Канал"}
+                    </p>
+                  </button>
+                ))}
+                {hasMoreChats && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => setVisibleChatCount((prev) => prev + 40)}
+                  >
+                    Показать еще чаты
+                  </Button>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
-        <Card className="flex flex-1 flex-col rounded-3xl h-full overflow-hidden">
+        <Card className="flex min-h-[420px] flex-1 flex-col rounded-3xl xl:h-full overflow-hidden">
           <CardHeader className="border-b pb-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
@@ -477,19 +496,26 @@ export default function ChatPage() {
                 </div>
               ) : currentMessages.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center">
-                  <div className="text-center">
-                    <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-                    <p className="text-sm font-medium mb-1">
-                      {activeChatId ? "Сообщений нет" : "Выберите чат"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {activeChatId ? "Начните переписку" : "Выберите чат из списка или начните новый"}
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={MessageSquare}
+                    title={activeChatId ? "Сообщений нет" : "Выберите чат"}
+                    description={activeChatId ? "Начните переписку" : "Выберите чат из списка или начните новый"}
+                  />
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {currentMessages.map((msg) => {
+                  {hasMoreMessages && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="mx-auto flex"
+                      onClick={() => setVisibleMessageCount((prev) => prev + 80)}
+                    >
+                      <ChevronUp className="mr-2 h-4 w-4" />
+                      Загрузить предыдущие сообщения
+                    </Button>
+                  )}
+                  {visibleMessages.map((msg) => {
                     const isOwnMessage = String(msg.senderId) === String(currentUser?.id)
                     return (
                       <div

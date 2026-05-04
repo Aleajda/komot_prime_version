@@ -38,24 +38,27 @@ export const Dialog = ({ open, onOpenChange, title, description, children, foote
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
         <div
           className={cn(
-            "w-full max-w-2xl rounded-2xl border border-border bg-background shadow-2xl dark:border-white/10 dark:bg-[#0f131a]"
+            "flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl dark:border-white/10 dark:bg-[#0f131a]"
           )}
           role="dialog"
           aria-modal="true"
           aria-label={title}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5 dark:border-white/10">
-            <div className="min-w-0">
-              <div className="text-lg font-semibold text-foreground">{title}</div>
-              {description ? <div className="mt-1 text-sm text-muted-foreground">{description}</div> : null}
+          <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-border px-6 py-5 dark:border-white/10">
+            <div className="min-w-0 pr-2">
+              <div className="text-lg font-semibold tracking-tight text-foreground">{title}</div>
+              {description ? (
+                <div className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</div>
+              ) : null}
             </div>
             <Button
               variant="ghost"
               size="icon"
+              className="flex-shrink-0 rounded-xl"
               onClick={() => onOpenChange(false)}
               aria-label="Закрыть"
             >
@@ -63,10 +66,10 @@ export const Dialog = ({ open, onOpenChange, title, description, children, foote
             </Button>
           </div>
 
-          <div className="px-6 py-5">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
 
           {footer ? (
-            <div className="flex flex-col gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-end dark:border-white/10">
+            <div className="flex flex-shrink-0 flex-col gap-3 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-end dark:border-white/10 dark:bg-[#141922]/80">
               {footer}
             </div>
           ) : null}

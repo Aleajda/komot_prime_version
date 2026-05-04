@@ -36,7 +36,10 @@ export interface ProjectResponse {
   description?: string
   status: "ACTIVE" | "ARCHIVED" | "COMPLETED"
   teamId: string
+  /** Администраторы проекта */
   editorIds: string[]
+  /** Участники проекта (работа с задачами) */
+  memberIds?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -49,6 +52,8 @@ export interface TaskResponse {
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"
   projectId: string
   assigneeId?: string
+  /** PUT: снять исполнителя */
+  assigneeCleared?: boolean
   creatorId: string
   dueDate?: string
   editorIds: string[]
@@ -62,7 +67,10 @@ export interface TeamResponse {
   description?: string
   avatar?: string
   ownerId: string
+  /** Администраторы команды */
   editorIds: string[]
+  /** Участники без админ-прав */
+  memberIds?: string[]
   createdAt: string
   updatedAt: string
 }

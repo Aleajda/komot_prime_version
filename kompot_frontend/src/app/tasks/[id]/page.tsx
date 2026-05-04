@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,8 @@ import { ProjectResponse, TaskResponse, TeamResponse, UserResponse } from "@/typ
 import { Loader2, ArrowLeft, Pencil, Save, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
+import { canParticipateInProject, isUserOnProjectRoster } from "@/lib/project-roster"
+import { useAppSelector } from "@/store/hooks"
 
 const STATUS_LABELS: Record<TaskResponse["status"], string> = {
   TODO: "Новая",
@@ -33,6 +35,7 @@ const PRIORITY_LABELS: Record<TaskResponse["priority"], string> = {
 export default function TaskDetailsPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const { user: currentUser } = useAppSelector((state) => state.auth)
   const [task, setTask] = useState<TaskResponse | null>(null)
   const [project, setProject] = useState<ProjectResponse | null>(null)
   const [team, setTeam] = useState<TeamResponse | null>(null)
@@ -86,6 +89,25 @@ export default function TaskDetailsPage() {
     load()
   }, [params?.id])
 
+  const assignableUsers = useMemo(() => {
+    if (!project) return []
+    const roster = users.filter((u) => isUserOnProjectRoster(project, u.id))
+    const base = [...roster]
+    if (assignee && !base.some((u) => u.id === assignee.id)) {
+      base.push(assignee)
+    }
+    return base.sort((a, b) =>
+      (a.username || a.email).localeCompare(b.username || b.email, "ru", { sensitivity: "base" })
+    )
+  }, [project, users, assignee])
+
+  const canEditTask = Boolean(
+    currentUser &&
+      project &&
+      team &&
+      (currentUser.role === "ADMIN" || canParticipateInProject(project, team, currentUser.id))
+  )
+
   const handleDelete = async () => {
     if (!task) return
     try {
@@ -129,13 +151,18 @@ export default function TaskDetailsPage() {
     if (!task || !editForm.title.trim()) return
     setIsSaving(true)
     try {
-      const updated = await taskService.updateTask(task.id, {
+      const payload: Partial<TaskResponse> = {
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
         status: editForm.status,
         priority: editForm.priority,
-        assigneeId: editForm.assigneeId === "__none__" ? undefined : editForm.assigneeId,
-      })
+      }
+      if (editForm.assigneeId === "__none__") {
+        payload.assigneeCleared = true
+      } else {
+        payload.assigneeId = editForm.assigneeId
+      }
+      const updated = await taskService.updateTask(task.id, payload)
       setTask(updated)
       const nextAssignee = updated.assigneeId ? await userService.getUserById(updated.assigneeId) : null
       setAssignee(nextAssignee)
@@ -187,7 +214,7 @@ export default function TaskDetailsPage() {
           </Button>
           <div className="flex items-center gap-2">
             {!isEditing ? (
-              <Button variant="outline" onClick={handleStartEdit}>
+              <Button variant="outline" onClick={handleStartEdit} disabled={!canEditTask}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Редактировать
               </Button>
@@ -203,7 +230,7 @@ export default function TaskDetailsPage() {
                 </Button>
               </>
             )}
-            <Button variant="destructive" onClick={() => setIsDeleteOpen(true)} disabled={isSaving}>
+            <Button variant="destructive" onClick={() => setIsDeleteOpen(true)} disabled={isSaving || !canEditTask}>
               <Trash2 className="mr-2 h-4 w-4" />
               Удалить задачу
             </Button>
@@ -326,7 +353,7 @@ export default function TaskDetailsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Не назначен</SelectItem>
-                        {users.map((u) => (
+                        {assignableUsers.map((u) => (
                           <SelectItem key={u.id} value={u.id}>
                             {u.username || u.email}
                           </SelectItem>
