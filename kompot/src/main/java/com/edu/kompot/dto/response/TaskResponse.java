@@ -20,6 +20,8 @@ public class TaskResponse {
 	private String description;
 	private UUID projectId;
 	private UUID assigneeId;
+	/** Если true в теле PUT — снять исполнителя (assigneeId в JSON может отсутствовать). */
+	private Boolean assigneeCleared;
 	private UUID creatorId;
 	private Task.TaskStatus status;
 	private Task.TaskPriority priority;

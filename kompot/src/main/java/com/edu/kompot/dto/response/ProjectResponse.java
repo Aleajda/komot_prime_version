@@ -20,7 +20,10 @@ public class ProjectResponse {
 	private String description;
 	private UUID teamId;
 	private Project.ProjectStatus status;
+	/** Администраторы проекта (настройки, участники). */
 	private Set<UUID> editorIds;
+	/** Участники проекта (работа с задачами). */
+	private Set<UUID> memberIds;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 }

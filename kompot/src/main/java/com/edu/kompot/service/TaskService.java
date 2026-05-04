@@ -4,10 +4,10 @@ import com.edu.kompot.dto.response.TaskResponse;
 import com.edu.kompot.exception.CustomException;
 import com.edu.kompot.entity.Project;
 import com.edu.kompot.entity.Task;
+import com.edu.kompot.entity.Team;
 import com.edu.kompot.entity.User;
 import com.edu.kompot.repository.ProjectRepository;
 import com.edu.kompot.repository.TaskRepository;
-import com.edu.kompot.repository.TeamMemberRepository;
 import com.edu.kompot.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,6 @@ public class TaskService {
 
 	private final TaskRepository taskRepository;
 	private final ProjectRepository projectRepository;
-	private final TeamMemberRepository teamMemberRepository;
 	private final UserRepository userRepository;
 
 	public List<TaskResponse> getProjectTasks(UUID projectId) {
@@ -45,13 +44,19 @@ public class TaskService {
 
 		Set<UUID> editorIds = normalizeEditorIds(taskResponse.getEditorIds(), creatorId);
 
+		User assigneeUser = null;
+		if (taskResponse.getAssigneeId() != null) {
+			assigneeUser = userRepository.findById(taskResponse.getAssigneeId())
+					.orElseThrow(() -> new CustomException("Assignee not found"));
+			validateAssigneeOnProject(project, assigneeUser.getId());
+		}
+
 		Task task = Task.builder()
 				.title(taskResponse.getTitle())
 				.description(taskResponse.getDescription())
 				.project(project)
 				.creator(creator)
-				.assignee(taskResponse.getAssigneeId() != null ?
-						userRepository.findById(taskResponse.getAssigneeId()).orElse(null) : null)
+				.assignee(assigneeUser)
 				.status(taskResponse.getStatus() != null ? taskResponse.getStatus() : Task.TaskStatus.TODO)
 				.priority(taskResponse.getPriority() != null ? taskResponse.getPriority() : Task.TaskPriority.MEDIUM)
 				.editorIds(editorIds)
@@ -89,9 +94,12 @@ public class TaskService {
 		if (taskResponse.getDueDate() != null) {
 			task.setDueDate(taskResponse.getDueDate());
 		}
-		if (taskResponse.getAssigneeId() != null) {
+		if (Boolean.TRUE.equals(taskResponse.getAssigneeCleared())) {
+			task.setAssignee(null);
+		} else if (taskResponse.getAssigneeId() != null) {
 			User assignee = userRepository.findById(taskResponse.getAssigneeId())
 					.orElseThrow(() -> new CustomException("Assignee not found"));
+			validateAssigneeOnProject(task.getProject(), assignee.getId());
 			task.setAssignee(assignee);
 		}
 		if (taskResponse.getEditorIds() != null) {
@@ -139,17 +147,36 @@ public class TaskService {
 		if (user.getRole() == User.Role.ADMIN) {
 			return;
 		}
-		if (!task.getEditorIds().contains(userId)) {
-			throw new CustomException("No permission to edit task");
+		if (canParticipateInProject(task.getProject(), userId)) {
+			return;
 		}
+		throw new CustomException("No permission to edit task");
 	}
 
 	private void validateProjectMember(Project project, UUID userId) {
-		if (project.getTeam().getOwner().getId().equals(userId)
-				|| teamMemberRepository.existsByTeamIdAndUserId(project.getTeam().getId(), userId)) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new CustomException("User not found"));
+		if (user.getRole() == User.Role.ADMIN) {
+			return;
+		}
+		if (canParticipateInProject(project, userId)) {
 			return;
 		}
 		throw new CustomException("No permission to create task");
+	}
+
+	private boolean canParticipateInProject(Project project, UUID userId) {
+		if (project.getEditorIds().contains(userId) || project.getMemberIds().contains(userId)) {
+			return true;
+		}
+		Team team = project.getTeam();
+		return team.getOwner().getId().equals(userId) || team.getEditorIds().contains(userId);
+	}
+
+	private void validateAssigneeOnProject(Project project, UUID assigneeId) {
+		if (!project.getEditorIds().contains(assigneeId) && !project.getMemberIds().contains(assigneeId)) {
+			throw new CustomException("Assignee must be a member of this project");
+		}
 	}
 }
 

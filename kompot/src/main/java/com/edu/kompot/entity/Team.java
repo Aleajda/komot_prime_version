@@ -43,6 +43,13 @@ public class Team {
 	@Builder.Default
 	private Set<UUID> editorIds = new HashSet<>();
 
+	/** Участники команды без прав администратора (как «Developer» в YouTrack). */
+	@ElementCollection(fetch = FetchType.EAGER)
+	@CollectionTable(name = "team_member_ids", joinColumns = @JoinColumn(name = "team_id"))
+	@Column(name = "user_id", nullable = false)
+	@Builder.Default
+	private Set<UUID> memberIds = new HashSet<>();
+
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
 	private LocalDateTime createdAt;

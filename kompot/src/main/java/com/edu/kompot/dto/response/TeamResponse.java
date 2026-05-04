@@ -19,7 +19,10 @@ public class TeamResponse {
 	private String description;
 	private String avatar;
 	private UUID ownerId;
+	/** Администраторы команды (настройки, участники, создание проектов). */
 	private Set<UUID> editorIds;
+	/** Участники без админ-прав. */
+	private Set<UUID> memberIds;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 }

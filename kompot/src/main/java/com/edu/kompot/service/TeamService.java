@@ -34,6 +34,8 @@ public class TeamService {
 				.map(TeamMember::getTeam)
 				.collect(Collectors.toSet()));
 		teams.addAll(teamRepository.findByEditorIdsContaining(userId));
+		teams.addAll(teamRepository.findByMemberIdsContaining(userId));
+		teams.addAll(teamRepository.findByOwnerId(userId));
 
 		return teams.stream()
 				.map(this::mapToTeamResponse)
@@ -45,17 +47,21 @@ public class TeamService {
 		var owner = userRepository.findById(ownerId)
 				.orElseThrow(() -> new CustomException("Owner not found"));
 
+		Set<UUID> editorIds = normalizeEditorIds(teamResponse.getEditorIds(), ownerId);
+		Set<UUID> memberIds = sanitizeTeamMemberIds(editorIds, teamResponse.getMemberIds());
+
 		Team team = Team.builder()
 				.name(teamResponse.getName())
 				.description(teamResponse.getDescription())
 				.avatar(teamResponse.getAvatar())
 				.owner(owner)
-				.editorIds(normalizeEditorIds(teamResponse.getEditorIds(), ownerId))
+				.editorIds(editorIds)
+				.memberIds(memberIds)
 				.build();
 
 		team = teamRepository.save(team);
 
-		syncTeamMembersWithEditors(team);
+		syncTeamMembers(team);
 
 		return mapToTeamResponse(team);
 	}
@@ -84,9 +90,12 @@ public class TeamService {
 		if (teamResponse.getEditorIds() != null) {
 			team.setEditorIds(normalizeEditorIds(teamResponse.getEditorIds(), team.getOwner().getId()));
 		}
+		if (teamResponse.getMemberIds() != null) {
+			team.setMemberIds(sanitizeTeamMemberIds(team.getEditorIds(), teamResponse.getMemberIds()));
+		}
 
 		team = teamRepository.save(team);
-		syncTeamMembersWithEditors(team);
+		syncTeamMembers(team);
 		return mapToTeamResponse(team);
 	}
 
@@ -106,9 +115,16 @@ public class TeamService {
 				.avatar(team.getAvatar())
 				.ownerId(team.getOwner().getId())
 				.editorIds(team.getEditorIds())
+				.memberIds(team.getMemberIds())
 				.createdAt(team.getCreatedAt())
 				.updatedAt(team.getUpdatedAt())
 				.build();
+	}
+
+	private Set<UUID> sanitizeTeamMemberIds(Set<UUID> adminIds, Set<UUID> requestedMembers) {
+		Set<UUID> members = requestedMembers == null ? new HashSet<>() : new HashSet<>(requestedMembers);
+		members.removeAll(adminIds);
+		return members;
 	}
 
 	private Set<UUID> normalizeEditorIds(Set<UUID> requestedEditorIds, UUID requiredEditorId) {
@@ -128,46 +144,47 @@ public class TeamService {
 		}
 	}
 
-	private void syncTeamMembersWithEditors(Team team) {
-		Set<UUID> editorIds = normalizeEditorIds(team.getEditorIds(), team.getOwner().getId());
-		team.setEditorIds(editorIds);
+	private void syncTeamMembers(Team team) {
+		Set<UUID> adminIds = normalizeEditorIds(team.getEditorIds(), team.getOwner().getId());
+		team.setEditorIds(adminIds);
+		Set<UUID> memberOnlyIds = sanitizeTeamMemberIds(adminIds, team.getMemberIds());
+		team.setMemberIds(memberOnlyIds);
+
+		Set<UUID> allUserIds = new HashSet<>(adminIds);
+		allUserIds.addAll(memberOnlyIds);
+		allUserIds.add(team.getOwner().getId());
 
 		List<TeamMember> existingMembers = teamMemberRepository.findByTeamId(team.getId());
 		Map<UUID, TeamMember> existingMembersByUserId = existingMembers.stream()
 				.collect(Collectors.toMap((member) -> member.getUser().getId(), (member) -> member));
 
-		for (UUID editorId : editorIds) {
-			if (existingMembersByUserId.containsKey(editorId)) {
-				continue;
-			}
-
-			User memberUser = userRepository.findById(editorId)
-					.orElseThrow(() -> new CustomException("User not found"));
-			TeamMember.MemberRole role = editorId.equals(team.getOwner().getId())
+		for (UUID userId : allUserIds) {
+			TeamMember.MemberRole role = adminIds.contains(userId) || team.getOwner().getId().equals(userId)
 					? TeamMember.MemberRole.ADMIN
 					: TeamMember.MemberRole.MEMBER;
 
-			TeamMember member = TeamMember.builder()
-					.team(team)
-					.user(memberUser)
-					.role(role)
-					.build();
-			teamMemberRepository.save(member);
+			TeamMember existing = existingMembersByUserId.get(userId);
+			if (existing == null) {
+				User memberUser = userRepository.findById(userId)
+						.orElseThrow(() -> new CustomException("User not found"));
+				teamMemberRepository.save(TeamMember.builder()
+						.team(team)
+						.user(memberUser)
+						.role(role)
+						.build());
+				continue;
+			}
+			if (existing.getRole() != role) {
+				existing.setRole(role);
+				teamMemberRepository.save(existing);
+			}
 		}
 
 		for (TeamMember existingMember : existingMembers) {
 			UUID memberId = existingMember.getUser().getId();
-			if (editorIds.contains(memberId)) {
-				TeamMember.MemberRole targetRole = memberId.equals(team.getOwner().getId())
-						? TeamMember.MemberRole.ADMIN
-						: TeamMember.MemberRole.MEMBER;
-				if (existingMember.getRole() != targetRole) {
-					existingMember.setRole(targetRole);
-					teamMemberRepository.save(existingMember);
-				}
-				continue;
+			if (!allUserIds.contains(memberId)) {
+				teamMemberRepository.deleteByTeamIdAndUserId(team.getId(), memberId);
 			}
-			teamMemberRepository.deleteByTeamIdAndUserId(team.getId(), memberId);
 		}
 	}
 }

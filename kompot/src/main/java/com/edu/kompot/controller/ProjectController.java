@@ -18,8 +18,12 @@ public class ProjectController {
 	private final ProjectService projectService;
 
 	@GetMapping("/teams/{teamId}/projects")
-	public ResponseEntity<List<ProjectResponse>> getTeamProjects(@PathVariable UUID teamId) {
-		return ResponseEntity.ok(projectService.getTeamProjects(teamId));
+	public ResponseEntity<List<ProjectResponse>> getTeamProjects(
+			@PathVariable UUID teamId,
+			Authentication authentication
+	) {
+		UUID userId = UUID.fromString(authentication.getName());
+		return ResponseEntity.ok(projectService.getTeamProjects(teamId, userId));
 	}
 
 	@PostMapping("/teams/{teamId}/projects")

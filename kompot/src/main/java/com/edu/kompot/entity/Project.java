@@ -46,6 +46,13 @@ public class Project {
 	@Builder.Default
 	private Set<UUID> editorIds = new HashSet<>();
 
+	/** Участники проекта: доступ к задачам без прав администратора проекта. */
+	@ElementCollection(fetch = FetchType.EAGER)
+	@CollectionTable(name = "project_member_ids", joinColumns = @JoinColumn(name = "project_id"))
+	@Column(name = "user_id", nullable = false)
+	@Builder.Default
+	private Set<UUID> memberIds = new HashSet<>();
+
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
 	private LocalDateTime createdAt;
