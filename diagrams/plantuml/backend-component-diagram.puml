@@ -1,0 +1,59 @@
+@startuml
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Клиентский интерфейс\n(Next.js)" as FE
+
+package "Сервер Kompot (Spring Boot)" {
+  [Контроллер аутентификации] as AuthC
+  [Контроллер пользователей] as UserC
+  [Контроллер команд] as TeamC
+  [Контроллер проектов] as ProjC
+  [Контроллер задач] as TaskC
+  [Контроллеры чата и сообщений] as ChatC
+  [Административный контроллер] as AdminC
+  [Контроллер файлов] as FileC
+  [Контроллер поиска] as SearchC
+
+  [Настройки безопасности + фильтр JWT] as Sec
+  [Слой сервисов] as Services
+  [Слой репозиториев (Spring Data JPA)] as Repo
+}
+
+database "PostgreSQL" as DB
+collections "Хранилище файлов\n(локально / S3)" as FS
+
+FE --> AuthC : REST /api/auth/*
+FE --> UserC : REST /api/users/*
+FE --> TeamC : REST /api/teams/*
+FE --> ProjC : REST /api/teams/{id}/projects
+FE --> TaskC : REST /api/projects/{id}/tasks
+FE --> ChatC : REST + WebSocket/STOMP
+FE --> AdminC : REST /api/admin/*
+FE --> FileC : загрузка / скачивание
+FE --> SearchC : глобальный поиск
+
+AuthC --> Sec
+UserC --> Sec
+TeamC --> Sec
+ProjC --> Sec
+TaskC --> Sec
+ChatC --> Sec
+AdminC --> Sec
+FileC --> Sec
+SearchC --> Sec
+
+AuthC --> Services
+UserC --> Services
+TeamC --> Services
+ProjC --> Services
+TaskC --> Services
+ChatC --> Services
+AdminC --> Services
+FileC --> Services
+SearchC --> Services
+
+Services --> Repo
+Repo --> DB
+FileC --> FS
+@enduml

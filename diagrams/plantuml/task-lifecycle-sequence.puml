@@ -1,0 +1,36 @@
+@startuml
+autonumber
+actor "Пользователь" as U
+participant "Клиент\n(Next.js)" as FE
+participant "Контроллер задач" as TC
+participant "Сервис задач" as TS
+participant "Репозиторий задач" as TR
+database "PostgreSQL" as DB
+
+U -> FE : Создаёт задачу в проекте
+FE -> TC : POST /api/projects/{projectId}/tasks
+TC -> TS : создать задачу (dto, проект, создатель)
+TS -> TR : сохранить(задача)
+TR -> DB : INSERT в таблицу задач
+DB --> TR : строка из БД
+TR --> TS : сущность «Задача»
+TS --> TC : DTO ответа с задачей
+TC --> FE : HTTP 200 и данные задачи
+FE --> U : Показывает задачу в списке
+
+== Обновление статуса ==
+U -> FE : Переводит задачу в IN_PROGRESS
+FE -> TC : PUT /api/tasks/{id}
+TC -> TS : обновить задачу (id, dto, пользователь)
+TS -> TR : найти по идентификатору(id)
+TR -> DB : SELECT из таблицы задач
+DB --> TR : строка из БД
+TR --> TS : сущность «Задача»
+TS -> TR : сохранить(обновлённая задача)
+TR -> DB : UPDATE в таблице задач
+DB --> TR : обновлённая строка
+TR --> TS : обновлённая сущность
+TS --> TC : DTO ответа с задачей
+TC --> FE : HTTP 200 и данные задачи
+FE --> U : Статус обновлён
+@enduml

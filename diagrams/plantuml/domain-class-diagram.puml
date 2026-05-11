@@ -1,0 +1,97 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide methods
+
+class "Пользователь" as User {
+  +идентификатор : UUID
+  +электроннаяПочта : String
+  +имяПользователя : String
+  +роль : Role
+  +активен : Boolean
+}
+
+class "Команда" as Team {
+  +идентификатор : UUID
+  +название : String
+  +описание : String
+  +идентификаторВладельца : UUID
+}
+
+class "Участник команды" as TeamMember {
+  +идентификатор : UUID
+  +рольУчастника : MemberRole
+  +датаВступления : LocalDateTime
+}
+
+class "Проект" as Project {
+  +идентификатор : UUID
+  +название : String
+  +статус : ProjectStatus
+}
+
+class "Задача" as Task {
+  +идентификатор : UUID
+  +заголовок : String
+  +статус : TaskStatus
+  +приоритет : TaskPriority
+  +срок : LocalDateTime
+}
+
+class "Комментарий к задаче" as TaskComment {
+  +идентификатор : UUID
+  +текст : String
+}
+
+class "Чат" as Chat {
+  +идентификатор : UUID
+  +название : String
+  +тип : ChatType
+}
+
+class "Участник чата" as ChatMember {
+  +идентификатор : UUID
+  +рольВЧате : Role
+  +датаВступления : LocalDateTime
+}
+
+class "Сообщение" as Message {
+  +идентификатор : UUID
+  +текст : String
+  +создано : LocalDateTime
+}
+
+class "Файл" as FileEntity {
+  +идентификатор : UUID
+  +имяФайла : String
+  +путьВХранилище : String
+  +размер : Long
+}
+
+class "Дружба (заявка)" as Friendship {
+  +идентификатор : UUID
+  +статус : Status
+}
+
+User "1" -- "0..*" Team : владелец
+User "1" -- "0..*" TeamMember
+Team "1" -- "0..*" TeamMember
+
+Team "1" -- "0..*" Project
+Project "1" -- "0..*" Task
+
+Task "1" -- "0..*" TaskComment
+User "1" -- "0..*" TaskComment : автор
+User "1" -- "0..*" Task : исполнитель / автор
+
+Chat "1" -- "0..*" ChatMember
+User "1" -- "0..*" ChatMember
+Chat "1" -- "0..*" Message
+User "1" -- "0..*" Message : отправитель
+
+Task "0..1" -- "0..*" FileEntity
+Message "0..1" -- "0..*" FileEntity
+User "1" -- "0..*" FileEntity : загрузивший
+
+User "1" -- "0..*" Friendship : инициатор
+User "1" -- "0..*" Friendship : адресат
+@enduml

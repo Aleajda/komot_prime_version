@@ -1,0 +1,22 @@
+@startuml
+skinparam linetype ortho
+
+node "Браузер пользователя" as Browser {
+  artifact "Интерфейс Kompot\n(Next.js 16 + React 19)" as UI
+}
+
+node "Сервер приложения" as BEHost {
+  artifact "API Kompot\n(Spring Boot 3.3.5, Java 21)" as API
+  artifact "Конечная точка WebSocket/STOMP" as WS
+}
+
+database "PostgreSQL" as PG
+node "Хранилище файлов" as Storage {
+  artifact "Локальная ФС / хранилище, совместимое с S3" as FS
+}
+
+UI --> API : HTTPS (REST, JSON, JWT)
+UI --> WS : WebSocket (STOMP/SockJS)
+API --> PG : JDBC / JPA (Hibernate)
+API --> FS : загрузка / ссылки на метаданные
+@enduml

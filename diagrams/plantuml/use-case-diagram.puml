@@ -1,0 +1,48 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Гость" as Guest
+actor "Пользователь" as User
+actor "Администратор" as Admin
+
+rectangle "Система Kompot" {
+  usecase "Регистрация" as UC_Register
+  usecase "Вход в систему" as UC_Login
+  usecase "Управление профилем" as UC_Profile
+  usecase "Создать команду" as UC_CreateTeam
+  usecase "Управлять участниками команды" as UC_TeamMembers
+  usecase "Создать проект" as UC_CreateProject
+  usecase "Управлять задачами" as UC_Tasks
+  usecase "Комментировать задачи" as UC_TaskComments
+  usecase "Общаться в чатах" as UC_Chat
+  usecase "Управлять файлами" as UC_Files
+  usecase "Глобальный поиск" as UC_Search
+  usecase "Просмотр статистики" as UC_Stats
+  usecase "Управление ролями пользователей" as UC_Roles
+  usecase "Активация/блокировка пользователей" as UC_Blocking
+}
+
+Guest --> UC_Register
+Guest --> UC_Login
+
+User --> UC_Login
+User --> UC_Profile
+User --> UC_CreateTeam
+User --> UC_TeamMembers
+User --> UC_CreateProject
+User --> UC_Tasks
+User --> UC_TaskComments
+User --> UC_Chat
+User --> UC_Files
+User --> UC_Search
+
+Admin --> UC_Stats
+Admin --> UC_Roles
+Admin --> UC_Blocking
+
+UC_Tasks .> UC_TaskComments : <<include>>
+UC_CreateProject .> UC_Tasks : <<include>>
+UC_Login .> UC_Profile : <<extend>>
+@enduml
