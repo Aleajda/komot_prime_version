@@ -23,6 +23,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
+		// Native WebSocket — React Native / mobile
+		registry.addEndpoint("/ws")
+				.setAllowedOriginPatterns("*");
+		// SockJS — web / Electron
 		registry.addEndpoint("/ws")
 				.setAllowedOriginPatterns("*")
 				.withSockJS();
