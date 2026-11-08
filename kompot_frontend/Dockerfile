@@ -16,7 +16,6 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-ENV API_URL=http://localhost:8080/api
 RUN addgroup -S kompot && adduser -S kompot -G kompot
 COPY --from=build /app/public ./public
 COPY --from=build --chown=kompot:kompot /app/.next/standalone ./

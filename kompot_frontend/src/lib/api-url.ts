@@ -13,6 +13,7 @@ export function getApiUrl(): string {
 }
 
 export function apiRuntimeScript(): string {
-  const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || FALLBACK_API_URL
+  // Скобки, чтобы Next не подставил значение на этапе сборки.
+  const url = process.env["API_URL"] || process.env["NEXT_PUBLIC_API_URL"] || FALLBACK_API_URL
   return `window.__KOMPOT_API_URL__=${JSON.stringify(url)}`
 }
