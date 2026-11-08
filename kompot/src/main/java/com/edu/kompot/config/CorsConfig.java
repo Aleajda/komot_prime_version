@@ -7,8 +7,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Configuration
 public class CorsConfig {
@@ -19,11 +22,15 @@ public class CorsConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		List<String> origins = Arrays.stream(allowedOrigins.split(","))
+		Set<String> origins = new LinkedHashSet<>();
+		Arrays.stream(allowedOrigins.split(","))
 				.map(String::trim)
 				.filter(origin -> !origin.isEmpty())
-				.toList();
-		configuration.setAllowedOrigins(origins);
+				.forEach(origins::add);
+		origins.add("http://localhost:*");
+		origins.add("http://127.0.0.1:*");
+		origins.add("https://*.onrender.com");
+		configuration.setAllowedOriginPatterns(new ArrayList<>(origins));
 		configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 		configuration.setAllowedHeaders(List.of("*"));
 		configuration.setExposedHeaders(List.of("Authorization"));
