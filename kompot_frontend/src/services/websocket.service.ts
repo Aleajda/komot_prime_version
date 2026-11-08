@@ -2,6 +2,7 @@ import { Client, IMessage, StompSubscription } from "@stomp/stompjs"
 import SockJS from "sockjs-client"
 import { authService } from "./auth.service"
 import { MessageResponse } from "@/types/api"
+import { getApiUrl } from "@/lib/api-url"
 
 type MessageCallback = (message: MessageResponse) => void
 
@@ -25,7 +26,7 @@ class WebSocketService {
   private maxReconnectAttempts = 5
 
   private getWebSocketUrl(): string {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"
+    const apiUrl = getApiUrl()
     const baseUrl = apiUrl.replace("/api", "")
     return `${baseUrl}/ws`
   }

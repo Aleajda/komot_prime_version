@@ -2,11 +2,10 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios"
 import { toast } from "sonner"
 import { authService } from "@/services"
 import { extractApiErrorMessage } from "@/lib/api-error"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"
+import { getApiUrl } from "@/lib/api-url"
 
 export const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: getApiUrl(),
   headers: {
     "Content-Type": "application/json",
   },
@@ -14,6 +13,7 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    config.baseURL = getApiUrl()
     const token = authService.getToken()
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`

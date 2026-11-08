@@ -2,9 +2,9 @@ spring:
   application:
     name: kompot
   datasource:
-    url: jdbc:postgresql://localhost:5432/kompot
-    username: postgres
-    password: Aleajda2307
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/kompot}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Aleajda2307}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -20,8 +20,12 @@ spring:
 server:
   port: 8080
 
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:3000}
+
 jwt:
-  secret: your-secret-key-change-in-production-min-256-bits
+  secret: ${JWT_SECRET:your-secret-key-change-in-production-min-256-bits}
   expiration: 86400000
   refresh-expiration: 604800000
 

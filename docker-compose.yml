@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kompot
+      POSTGRES_USER: kompot
+      POSTGRES_PASSWORD: kompot
+    volumes:
+      - kompot_pg:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kompot -d kompot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./kompot
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/kompot
+      SPRING_DATASOURCE_USERNAME: kompot
+      SPRING_DATASOURCE_PASSWORD: kompot
+      APP_CORS_ORIGINS: http://localhost:3000
+      JWT_SECRET: kompot-docker-jwt-secret-key-32chars
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./kompot_frontend
+    environment:
+      API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  kompot_pg:

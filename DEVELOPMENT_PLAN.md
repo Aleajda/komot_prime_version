@@ -324,10 +324,10 @@
 - [ ] Настройка Spring Data JPA
 - [ ] Настройка Flyway/Liquibase для миграций
 - [ ] Базовая структура папок (Frontend + Backend)
-- [ ] Настройка Docker окружения
-- [ ] Настройка CI/CD
+- [x] Настройка Docker окружения
+- [x] Настройка CI/CD
 - [ ] Базовая конфигурация TypeScript, ESLint, Prettier
-- [ ] Настройка application.properties/yml для разных окружений
+- [x] Настройка application.properties/yml для разных окружений
 
 ### Этап 2: Аутентификация и пользователи (1 неделя)
 - [ ] Entity User (JPA)
