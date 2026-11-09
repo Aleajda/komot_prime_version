@@ -14,6 +14,8 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/store/hooks"
+import { useFeatures } from "@/config/features"
+import { CherryMark } from "@/components/brand/cherry-mark"
 
 const navigation = [
   { name: "Дашборд", href: "/dashboard", icon: LayoutDashboard },
@@ -34,7 +36,12 @@ interface SidebarProps {
 export const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
   const pathname = usePathname()
   const { user } = useAppSelector((state) => state.auth)
-  const filteredNavigation = navigation.filter((item) => item.href !== "/admin" || user?.role === "ADMIN")
+  const { workspaceEnabled } = useFeatures()
+  const workspaceHrefs = ["/projects", "/tasks", "/teams"]
+  const filteredNavigation = navigation.filter((item) => {
+    if (!workspaceEnabled && workspaceHrefs.includes(item.href)) return false
+    return item.href !== "/admin" || user?.role === "ADMIN"
+  })
 
   return (
     <>
@@ -47,11 +54,15 @@ export const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
       )}
       <aside
         className={cn(
-          "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar transition-transform dark:border-white/10 dark:bg-[#1a1e26]",
+          "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar transition-transform dark:border-white/10 dark:bg-[#240910]",
           "md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
+        <div className="flex items-center gap-2 px-6 pb-2 pt-4">
+          <CherryMark className="h-8 w-8" />
+          <span className="text-lg font-semibold text-primary">Компот</span>
+        </div>
         <nav className="flex flex-col gap-1 p-4">
           {filteredNavigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
@@ -64,8 +75,8 @@ export const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
                   isActive
-                    ? "border border-primary/40 bg-primary/15 text-primary shadow-lg ring-1 ring-primary/40 dark:border-primary/40 dark:bg-[#232730] dark:text-[#5bcffd] dark:ring-primary/40"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:text-[#8e929b] dark:hover:bg-[#232730] dark:hover:text-[#5bcffd]"
+                    ? "border border-primary/40 bg-primary/15 text-primary shadow-lg ring-1 ring-primary/40 dark:border-primary/40 dark:bg-[#3a1522] dark:text-[#ff6b8a] dark:ring-primary/40"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:text-[#e7b8c4] dark:hover:bg-[#3a1522] dark:hover:text-[#ff6b8a]"
                 )}
                 onClick={onClose}
               >

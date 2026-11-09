@@ -8,8 +8,9 @@ import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { logout } from "@/store/slices/authSlice"
 import { useRouter } from "next/navigation"
-import { searchService } from "@/services"
-import { SearchResponse } from "@/types/api"
+import { chatService, searchService, userService } from "@/services"
+import { SearchResponse, UserResponse } from "@/types/api"
+import { useFeatures } from "@/config/features"
 
 interface HeaderProps {
   onMenuClick?: () => void
@@ -19,8 +20,10 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
   const router = useRouter()
   const dispatch = useAppDispatch()
   const { user } = useAppSelector((state) => state.auth)
+  const { workspaceEnabled } = useFeatures()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResponse | null>(null)
+  const [people, setPeople] = useState<UserResponse[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [isOpenHints, setIsOpenHints] = useState(false)
   const debounceRef = useRef<number | null>(null)
@@ -47,8 +50,15 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
     debounceRef.current = window.setTimeout(async () => {
       setIsSearching(true)
       try {
-        const data = await searchService.search(trimmed)
-        setResults(data)
+        if (workspaceEnabled) {
+          const data = await searchService.search(trimmed)
+          setResults(data)
+          setPeople([])
+        } else {
+          const data = await userService.searchUsers(trimmed)
+          setPeople(data)
+          setResults(null)
+        }
         setIsOpenHints(true)
       } finally {
         setIsSearching(false)
@@ -60,7 +70,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
         window.clearTimeout(debounceRef.current)
       }
     }
-  }, [query])
+  }, [query, workspaceEnabled])
 
   const handleSelectProject = (projectId: string) => {
     router.push(`/projects/${projectId}`)
@@ -74,7 +84,16 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
     setQuery("")
   }
 
-  const hasAnyResults = Boolean((results?.projects.length || 0) + (results?.tasks.length || 0))
+  const openDirectChat = async (userId: string) => {
+    await chatService.getOrCreateDirectChat(userId)
+    router.push("/chat")
+    setIsOpenHints(false)
+    setQuery("")
+  }
+
+  const hasAnyResults = workspaceEnabled
+    ? Boolean((results?.projects.length || 0) + (results?.tasks.length || 0))
+    : people.length > 0
 
   const renderSearchInput = (className?: string) => (
     <div className={className}>
@@ -91,19 +110,35 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
           onKeyDown={(e) => {
             if (e.key === "Escape") setIsOpenHints(false)
           }}
-          placeholder="Поиск проектов, задач..."
-          className="h-10 pl-9 bg-card dark:bg-[#232730] dark:border-white/10"
-          aria-label="Поиск проектов и задач"
+          placeholder={workspaceEnabled ? "Поиск проектов, задач..." : "Поиск людей..."}
+          className="h-10 pl-9 bg-card dark:bg-[#3a1522] dark:border-white/10"
+          aria-label={workspaceEnabled ? "Поиск проектов и задач" : "Поиск людей"}
         />
       </div>
 
       {isOpenHints && query.trim() && (
-        <div className="absolute left-0 right-0 top-12 z-[120] overflow-hidden rounded-xl border border-border bg-background shadow-2xl dark:border-white/10 dark:bg-[#0f131a]">
+        <div className="absolute left-0 right-0 top-12 z-[120] overflow-hidden rounded-xl border border-border bg-background shadow-2xl dark:border-white/10 dark:bg-[#1a0610]">
           <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border dark:border-white/10">
             {isSearching ? "Поиск..." : hasAnyResults ? "Подсказки" : "Ничего не найдено"}
           </div>
 
-          {!isSearching && results && hasAnyResults && (
+          {!isSearching && !workspaceEnabled && people.length > 0 && (
+            <div className="max-h-80 overflow-auto px-2 py-2">
+              {people.map((person) => (
+                <button
+                  key={person.id}
+                  type="button"
+                  className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/50 dark:hover:bg-[#3a1522]"
+                  onClick={() => openDirectChat(person.id)}
+                >
+                  <div className="truncate font-medium text-foreground">{person.username || person.email}</div>
+                  <div className="truncate text-xs text-muted-foreground">{person.email}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!isSearching && workspaceEnabled && results && hasAnyResults && (
             <div className="max-h-80 overflow-auto">
               {results.projects.length > 0 && (
                 <div className="px-2 py-2">
@@ -115,7 +150,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                       <button
                         key={project.id}
                         type="button"
-                        className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/50 dark:hover:bg-[#232730]"
+                        className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/50 dark:hover:bg-[#3a1522]"
                         onClick={() => handleSelectProject(project.id)}
                         aria-label={`Открыть проект: ${project.name}`}
                       >
@@ -137,7 +172,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
                       <button
                         key={task.id}
                         type="button"
-                        className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/50 dark:hover:bg-[#232730]"
+                        className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/50 dark:hover:bg-[#3a1522]"
                         onClick={() => handleSelectTask(task.id)}
                         aria-label={`Открыть задачу: ${task.title}`}
                       >
@@ -158,7 +193,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
   )
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 dark:border-white/10 dark:bg-[#0f131a]/95">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 dark:border-white/10 dark:bg-[#1a0610]/95">
       <div className="absolute left-0 top-0 hidden h-16 items-center px-4 md:flex">
         {renderSearchInput("relative w-[min(32rem,42vw)]")}
       </div>

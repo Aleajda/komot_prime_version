@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Kompot - Управление проектами",
-  description: "Система управления проектами и командами",
+  title: "Компот",
+  description: "Социальная сеть Компот",
 };
 
 export default function RootLayout({

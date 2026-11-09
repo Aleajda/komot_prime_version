@@ -23,6 +23,8 @@ server:
 app:
   cors:
     allowed-origins: ${APP_CORS_ORIGINS:http://localhost:3000}
+  features:
+    workspace-enabled: false
 
 jwt:
   secret: ${JWT_SECRET:your-secret-key-change-in-production-min-256-bits}

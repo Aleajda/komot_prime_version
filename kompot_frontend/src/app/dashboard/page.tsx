@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useFeatures } from "@/config/features"
 
 const formatTimeAgo = (date: string) => {
   const now = new Date()
@@ -38,8 +39,14 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectResponse[]>([])
   const [allTasks, setAllTasks] = useState<TaskResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { workspaceEnabled, ready } = useFeatures()
 
   useEffect(() => {
+    if (!ready) return
+    if (!workspaceEnabled) {
+      setIsLoading(false)
+      return
+    }
     const loadData = async () => {
       setIsLoading(true)
       try {
@@ -62,7 +69,7 @@ export default function DashboardPage() {
       }
     }
     loadData()
-  }, [])
+  }, [ready, workspaceEnabled])
 
   const stats = useMemo(() => {
     const activeProjects = projects.filter((p) => p.status === "ACTIVE").length
@@ -150,13 +157,40 @@ export default function DashboardPage() {
       .slice(0, 6)
   }, [allTasks, projects])
 
-  if (isLoading) {
+  if (!ready || (workspaceEnabled && isLoading)) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             Загрузка данных...
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (!workspaceEnabled) {
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Лента</h1>
+            <p className="text-muted-foreground">Друзья, переписки и профиль</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Link href="/friends" className="rounded-xl border border-border p-5 hover:bg-muted/50">
+              <h2 className="font-semibold">Друзья</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Заявки и список людей</p>
+            </Link>
+            <Link href="/chat" className="rounded-xl border border-border p-5 hover:bg-muted/50">
+              <h2 className="font-semibold">Чат</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Личные переписки</p>
+            </Link>
+            <Link href="/profile" className="rounded-xl border border-border p-5 hover:bg-muted/50">
+              <h2 className="font-semibold">Профиль</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Имя, почта и данные аккаунта</p>
+            </Link>
           </div>
         </div>
       </MainLayout>

@@ -5,9 +5,12 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useFeatures } from "@/config/features"
+import { CherryMark } from "@/components/brand/cherry-mark"
 
 export default function Home() {
   const router = useRouter()
+  const { workspaceEnabled } = useFeatures()
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken")
@@ -17,19 +20,20 @@ export default function Home() {
   }, [router])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 dark:bg-[#0f131a]">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-2xl space-y-10 text-center">
         <div className="space-y-4">
-          <h1 className="text-5xl font-medium leading-tight tracking-wide text-primary dark:text-[#5bcffd] dark:drop-shadow-[0px_0px_24px_#5bcffd] md:text-6xl">
-            Добро пожаловать в Kompot
+          <CherryMark className="mx-auto h-20 w-20" />
+          <h1 className="text-5xl font-medium leading-tight tracking-wide text-primary md:text-6xl">
+            Добро пожаловать в Компот
           </h1>
-          <p className="text-lg text-muted-foreground dark:text-[#8e929b]">
-            Система управления проектами и командами
+          <p className="text-lg text-muted-foreground">
+            {workspaceEnabled ? "Система управления проектами и командами" : "Социальная сеть"}
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card className="hover:shadow-xl dark:hover:shadow-[0px_0px_20px_0px_rgba(91,207,253,0.2)] transition-shadow">
+          <Card className="transition-shadow hover:shadow-xl">
             <CardHeader>
               <CardTitle>Вход</CardTitle>
               <CardDescription>
@@ -38,14 +42,14 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <Link href="/auth/login">
-                <Button variant="outline" className="w-full border-primary/50 dark:border-[#5bcffd]/50">
+                <Button variant="outline" className="w-full">
                   Войти
                 </Button>
               </Link>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-xl dark:hover:shadow-[0px_0px_20px_0px_rgba(91,207,253,0.2)] transition-shadow">
+          <Card className="transition-shadow hover:shadow-xl">
             <CardHeader>
               <CardTitle>Регистрация</CardTitle>
               <CardDescription>
@@ -54,7 +58,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <Link href="/auth/register">
-                <Button variant="outline" className="w-full border-primary/50 dark:border-[#5bcffd]/50">
+                <Button variant="outline" className="w-full">
                   Зарегистрироваться
                 </Button>
               </Link>

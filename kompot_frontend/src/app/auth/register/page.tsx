@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { register } from "@/store/slices/authSlice"
+import { CherryMark } from "@/components/brand/cherry-mark"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -63,8 +64,9 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-xl border-border/60 bg-card shadow-xl">
         <CardHeader className="space-y-2 text-center">
+          <CherryMark className="mx-auto h-16 w-16" />
           <CardTitle className="text-3xl font-bold">Регистрация</CardTitle>
-          <CardDescription>Создайте аккаунт и начните работу в Kompot</CardDescription>
+          <CardDescription>Создайте аккаунт в Компоте</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
 import { canParticipateInProject, isUserOnProjectRoster } from "@/lib/project-roster"
 import { useAppSelector } from "@/store/hooks"
+import { useFeatures } from "@/config/features"
 
 const STATUS_LABELS: Record<TaskResponse["status"], string> = {
   TODO: "Новая",
@@ -36,6 +37,7 @@ export default function TaskDetailsPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const { user: currentUser } = useAppSelector((state) => state.auth)
+  const { workspaceEnabled, ready } = useFeatures()
   const [task, setTask] = useState<TaskResponse | null>(null)
   const [project, setProject] = useState<ProjectResponse | null>(null)
   const [team, setTeam] = useState<TeamResponse | null>(null)
@@ -55,6 +57,11 @@ export default function TaskDetailsPage() {
   })
 
   useEffect(() => {
+    if (ready && !workspaceEnabled) router.replace("/friends")
+  }, [ready, workspaceEnabled, router])
+
+  useEffect(() => {
+    if (!ready || !workspaceEnabled) return
     const taskId = params?.id
     if (!taskId) return
     const load = async () => {
@@ -87,7 +94,7 @@ export default function TaskDetailsPage() {
       }
     }
     load()
-  }, [params?.id])
+  }, [params?.id, ready, workspaceEnabled])
 
   const assignableUsers = useMemo(() => {
     if (!project) return []
@@ -174,6 +181,8 @@ export default function TaskDetailsPage() {
       setIsSaving(false)
     }
   }
+
+  if (ready && !workspaceEnabled) return null
 
   if (isLoading) {
     return (

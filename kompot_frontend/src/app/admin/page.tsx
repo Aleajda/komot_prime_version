@@ -13,12 +13,14 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
 import { useAppSelector } from "@/store/hooks"
+import { useFeatures } from "@/config/features"
 
 const formatDate = (value: string) => new Date(value).toLocaleDateString()
 
 export default function AdminPage() {
   const router = useRouter()
   const { user, isLoading: isAuthLoading } = useAppSelector((state) => state.auth)
+  const { workspaceEnabled, ready } = useFeatures()
   const [stats, setStats] = useState<AdminStatsResponse | null>(null)
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [teams, setTeams] = useState<AdminTeamSummary[]>([])
@@ -29,16 +31,18 @@ export default function AdminPage() {
       stats
         ? [
             { title: "Всего пользователей", value: stats.totalUsers, icon: Users, change: `Активных: ${stats.activeUsers}` },
-            { title: "Активных проектов", value: stats.activeProjects, icon: FolderKanban, change: `Задач сегодня: ${stats.tasksToday}` },
+            ...(workspaceEnabled
+              ? [{ title: "Активных проектов", value: stats.activeProjects, icon: FolderKanban, change: `Задач сегодня: ${stats.tasksToday}` }]
+              : []),
             { title: "Администраторов", value: stats.adminsCount, icon: Shield, change: `Активность: ${stats.activityPercent}%` },
             { title: "Аптайм", value: `${stats.uptimeHours} ч`, icon: Clock3, change: `Ошибки 24ч: ${stats.errors24h}` },
           ]
         : [],
-    [stats]
+    [stats, workspaceEnabled]
   )
 
   useEffect(() => {
-    if (!user) {
+    if (!ready || !user) {
       return
     }
     if (user.role !== "ADMIN") {
@@ -51,7 +55,7 @@ export default function AdminPage() {
         const [statsResp, usersResp, teamsResp] = await Promise.all([
           adminService.getStats(),
           adminService.getUsers(),
-          adminService.getTeams(),
+          workspaceEnabled ? adminService.getTeams() : Promise.resolve([]),
         ])
         setStats(statsResp)
         setUsers(usersResp.slice(0, 6))
@@ -63,7 +67,7 @@ export default function AdminPage() {
       }
     }
     load()
-  }, [router, user])
+  }, [ready, router, user, workspaceEnabled])
 
   if (isAuthLoading || !user) {
     return (
@@ -168,7 +172,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          {workspaceEnabled && <Card>
             <CardHeader>
               <CardTitle>Команды</CardTitle>
               <CardDescription>Самые активные команды</CardDescription>
@@ -200,7 +204,7 @@ export default function AdminPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         <Card>

@@ -18,7 +18,7 @@ export const SelectField = React.forwardRef<HTMLSelectElement, SelectFieldProps>
           <select
             ref={ref}
             className={cn(
-              "h-11 w-full appearance-none rounded-md border border-input bg-transparent px-3 pr-10 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:border-ring focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-[#1a1e26] dark:hover:border-primary/60 dark:focus-visible:border-primary",
+              "h-11 w-full appearance-none rounded-md border border-input bg-transparent px-3 pr-10 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:border-ring focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-[#240910] dark:hover:border-primary/60 dark:focus-visible:border-primary",
               props.multiple ? "h-32 py-2 pr-3" : ""
             )}
             {...props}

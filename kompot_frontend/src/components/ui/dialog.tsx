@@ -41,7 +41,7 @@ export const Dialog = ({ open, onOpenChange, title, description, children, foote
       <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
         <div
           className={cn(
-            "flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl dark:border-white/10 dark:bg-[#0f131a]"
+            "flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl dark:border-white/10 dark:bg-[#1a0610]"
           )}
           role="dialog"
           aria-modal="true"
@@ -69,7 +69,7 @@ export const Dialog = ({ open, onOpenChange, title, description, children, foote
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
 
           {footer ? (
-            <div className="flex flex-shrink-0 flex-col gap-3 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-end dark:border-white/10 dark:bg-[#141922]/80">
+            <div className="flex flex-shrink-0 flex-col gap-3 border-t border-border bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-end dark:border-white/10 dark:bg-[#2a0c16]/80">
               {footer}
             </div>
           ) : null}

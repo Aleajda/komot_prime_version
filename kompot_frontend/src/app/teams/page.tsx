@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import { extractApiErrorMessage } from "@/lib/api-error"
 import { TEAM_DESCRIPTION_MAX_LENGTH, TEAM_NAME_MAX_LENGTH } from "@/lib/form-limits"
 import { formatUserIdSnippet, normalizeUserId } from "@/lib/user-id"
 import { useAppSelector } from "@/store/hooks"
+import { useFeatures } from "@/config/features"
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<TeamResponse[]>([])
@@ -36,8 +38,15 @@ export default function TeamsPage() {
     memberIds: [] as string[],
   })
   const { user: currentUser } = useAppSelector((state) => state.auth)
+  const router = useRouter()
+  const { workspaceEnabled, ready } = useFeatures()
 
   useEffect(() => {
+    if (ready && !workspaceEnabled) router.replace("/friends")
+  }, [ready, workspaceEnabled, router])
+
+  useEffect(() => {
+    if (!ready || !workspaceEnabled) return
     const loadTeams = async () => {
       setIsLoading(true)
       try {
@@ -84,7 +93,7 @@ export default function TeamsPage() {
     }
 
     loadTeams()
-  }, [])
+  }, [ready, workspaceEnabled])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value
@@ -245,6 +254,8 @@ export default function TeamsPage() {
       }
     })
   }
+
+  if (ready && !workspaceEnabled) return null
 
   return (
     <MainLayout>
@@ -466,8 +477,8 @@ export default function TeamsPage() {
             <p className="text-xs text-muted-foreground">
               Настройки команды, участники, создание проектов. Владелец всегда администратор.
             </p>
-            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#232730]/60">
-              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#1a1e26]">
+            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#3a1522]/60">
+              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#240910]">
                 <div className="grid gap-1">
                   {sortedPlatformUsers.map((u) => {
                     const isOwner = isEditingTeamOwner(u.id)
@@ -485,7 +496,7 @@ export default function TeamsPage() {
                       <label
                         key={`admin-${u.id}`}
                         className={`flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm ${
-                          isOwner ? "cursor-default opacity-80" : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#232730]"
+                          isOwner ? "cursor-default opacity-80" : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#3a1522]"
                         }`}
                       >
                         <div className="min-w-0">
@@ -516,8 +527,8 @@ export default function TeamsPage() {
             <p className="text-xs text-muted-foreground">
               Доступ к команде и проектам команды без прав администратора (как в YouTrack: Developer).
             </p>
-            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#232730]/60">
-              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#1a1e26]">
+            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#3a1522]/60">
+              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#240910]">
                 <div className="grid gap-1">
                   {sortedPlatformUsers.map((u) => {
                       const isOwner = isEditingTeamOwner(u.id)
@@ -536,7 +547,7 @@ export default function TeamsPage() {
                         <label
                           key={`member-${u.id}`}
                           className={`flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm ${
-                            rowDisabled ? "cursor-default opacity-80" : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#232730]"
+                            rowDisabled ? "cursor-default opacity-80" : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#3a1522]"
                           }`}
                         >
                           <div className="min-w-0">

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAppDispatch, useAppSelector } from "@/store/hooks"
 import { login } from "@/store/slices/authSlice"
+import { CherryMark } from "@/components/brand/cherry-mark"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -37,8 +38,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg border-border/60 bg-card shadow-xl">
         <CardHeader className="space-y-2 text-center">
+          <CherryMark className="mx-auto h-16 w-16" />
           <CardTitle className="text-3xl font-bold">Вход</CardTitle>
-          <CardDescription>Добро пожаловать в Kompot</CardDescription>
+          <CardDescription>Добро пожаловать в Компот</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">

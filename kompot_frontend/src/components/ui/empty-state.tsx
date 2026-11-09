@@ -1,5 +1,6 @@
 import { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CherryMark } from "@/components/brand/cherry-mark"
 
 interface EmptyStateProps {
   icon: LucideIcon
@@ -20,7 +21,8 @@ export const EmptyState = ({
 }: EmptyStateProps) => {
   return (
     <div className={`py-10 text-center ${className ?? ""}`}>
-      <Icon className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+      <CherryMark className="mx-auto mb-2 h-14 w-14" />
+      <Icon className="mx-auto mb-3 h-8 w-8 text-primary" />
       <p className="mb-1 text-sm font-medium">{title}</p>
       <p className="mx-auto mb-4 max-w-sm text-xs text-muted-foreground">{description}</p>
       {actionLabel && onAction && (

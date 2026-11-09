@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ import { TASK_DESCRIPTION_MAX_LENGTH, TASK_TITLE_MAX_LENGTH } from "@/lib/form-l
 import { formatUserIdSnippet, normalizeUserId } from "@/lib/user-id"
 import { canParticipateInProject, isUserOnProjectRoster } from "@/lib/project-roster"
 import { useAppSelector } from "@/store/hooks"
+import { useFeatures } from "@/config/features"
 
 const STATUS_LABELS: Record<TaskResponse["status"], string> = {
   TODO: "Новая",
@@ -57,6 +59,8 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<TaskResponse | null>(null)
   const [deletingTask, setDeletingTask] = useState<TaskResponse | null>(null)
   const { user: currentUser } = useAppSelector((state) => state.auth)
+  const router = useRouter()
+  const { workspaceEnabled, ready } = useFeatures()
   const [editingForm, setEditingForm] = useState({
     title: "",
     description: "",
@@ -66,6 +70,11 @@ export default function TasksPage() {
   })
 
   useEffect(() => {
+    if (ready && !workspaceEnabled) router.replace("/friends")
+  }, [ready, workspaceEnabled, router])
+
+  useEffect(() => {
+    if (!ready || !workspaceEnabled) return
     const loadTeams = async () => {
       try {
         const usersList = await userService.getAllUsers()
@@ -86,10 +95,10 @@ export default function TasksPage() {
       }
     }
     loadTeams()
-  }, [])
+  }, [ready, workspaceEnabled])
 
   useEffect(() => {
-    if (!selectedTeamId) {
+    if (!ready || !workspaceEnabled || !selectedTeamId) {
       setProjects([])
       setSelectedProjectId("")
       return
@@ -112,10 +121,10 @@ export default function TasksPage() {
       }
     }
     loadProjects()
-  }, [selectedTeamId])
+  }, [ready, selectedTeamId, workspaceEnabled])
 
   useEffect(() => {
-    if (!selectedProjectId) {
+    if (!ready || !workspaceEnabled || !selectedProjectId) {
       setTasks([])
       return
     }
@@ -131,7 +140,7 @@ export default function TasksPage() {
       }
     }
     loadTasks()
-  }, [selectedProjectId])
+  }, [ready, selectedProjectId, workspaceEnabled])
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -314,6 +323,8 @@ export default function TasksPage() {
       toast.error(extractApiErrorMessage(err))
     }
   }
+
+  if (ready && !workspaceEnabled) return null
 
   return (
     <MainLayout>

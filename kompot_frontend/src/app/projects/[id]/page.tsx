@@ -14,6 +14,7 @@ import { ProjectResponse, TeamResponse } from "@/types/api"
 import { Loader2, ArrowLeft, Pencil, Save, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { extractApiErrorMessage } from "@/lib/api-error"
+import { useFeatures } from "@/config/features"
 
 const STATUS_LABELS: Record<ProjectResponse["status"], string> = {
   ACTIVE: "Активен",
@@ -24,6 +25,7 @@ const STATUS_LABELS: Record<ProjectResponse["status"], string> = {
 export default function ProjectDetailsPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const { workspaceEnabled, ready } = useFeatures()
   const [project, setProject] = useState<ProjectResponse | null>(null)
   const [team, setTeam] = useState<TeamResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -37,6 +39,11 @@ export default function ProjectDetailsPage() {
   })
 
   useEffect(() => {
+    if (ready && !workspaceEnabled) router.replace("/friends")
+  }, [ready, workspaceEnabled, router])
+
+  useEffect(() => {
+    if (!ready || !workspaceEnabled) return
     const projectId = params?.id
     if (!projectId) return
     const load = async () => {
@@ -58,7 +65,7 @@ export default function ProjectDetailsPage() {
       }
     }
     load()
-  }, [params?.id])
+  }, [params?.id, ready, workspaceEnabled])
 
   const handleDelete = async () => {
     if (!project) return
@@ -109,6 +116,8 @@ export default function ProjectDetailsPage() {
       setIsSaving(false)
     }
   }
+
+  if (ready && !workspaceEnabled) return null
 
   if (isLoading) {
     return (

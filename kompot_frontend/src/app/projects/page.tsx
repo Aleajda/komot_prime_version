@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import { isUserInTeamRoster } from "@/lib/team-roster"
 import { PROJECT_DESCRIPTION_MAX_LENGTH, PROJECT_NAME_MAX_LENGTH } from "@/lib/form-limits"
 import { userService } from "@/services"
 import { useAppSelector } from "@/store/hooks"
+import { useFeatures } from "@/config/features"
 
 const STATUS_LABELS: Record<ProjectResponse["status"], string> = {
   ACTIVE: "Активен",
@@ -34,6 +36,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectResponse[]>([])
   const [users, setUsers] = useState<UserResponse[]>([])
   const { user: currentUser } = useAppSelector((state) => state.auth)
+  const router = useRouter()
+  const { workspaceEnabled, ready } = useFeatures()
   const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
@@ -54,6 +58,11 @@ export default function ProjectsPage() {
   })
 
   useEffect(() => {
+    if (ready && !workspaceEnabled) router.replace("/friends")
+  }, [ready, workspaceEnabled, router])
+
+  useEffect(() => {
+    if (!ready || !workspaceEnabled) return
     const loadTeams = async () => {
       try {
         const data = await teamService.getUserTeams()
@@ -72,9 +81,10 @@ export default function ProjectsPage() {
       }
     }
     loadTeams()
-  }, [])
+  }, [ready, workspaceEnabled])
 
   useEffect(() => {
+    if (!ready || !workspaceEnabled) return
     const loadUsers = async () => {
       try {
         setUsers(await userService.getAllUsers())
@@ -83,10 +93,10 @@ export default function ProjectsPage() {
       }
     }
     loadUsers()
-  }, [])
+  }, [ready, workspaceEnabled])
 
   useEffect(() => {
-    if (!selectedTeamId) {
+    if (!ready || !workspaceEnabled || !selectedTeamId) {
       setProjects([])
       return
     }
@@ -102,7 +112,7 @@ export default function ProjectsPage() {
       }
     }
     loadProjects()
-  }, [selectedTeamId])
+  }, [ready, selectedTeamId, workspaceEnabled])
 
   const resetCreateProjectForm = () =>
     setForm({ name: "", description: "", status: "ACTIVE", memberIds: [] })
@@ -272,6 +282,8 @@ export default function ProjectsPage() {
       ),
     [users]
   )
+
+  if (ready && !workspaceEnabled) return null
 
   return (
     <MainLayout>
@@ -661,8 +673,8 @@ export default function ProjectsPage() {
             <p className="text-xs text-muted-foreground">
               Все пользователи; админом проекта может быть только участник команды. Владелец команды всегда админ.
             </p>
-            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#232730]/60">
-              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#1a1e26]">
+            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#3a1522]/60">
+              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#240910]">
                 <div className="grid gap-1">
                   {sortedPlatformUsers.map((u) => {
                     const team = editingTeamForProject
@@ -688,7 +700,7 @@ export default function ProjectsPage() {
                             ? "cursor-default opacity-70"
                             : isOwner
                               ? "cursor-default opacity-80"
-                              : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#232730]"
+                              : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#3a1522]"
                         }`}
                       >
                         <div className="min-w-0">
@@ -722,8 +734,8 @@ export default function ProjectsPage() {
             <p className="text-xs text-muted-foreground">
               Участником проекта может быть только пользователь из команды. Список — все пользователи для удобства.
             </p>
-            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#232730]/60">
-              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#1a1e26]">
+            <div className="rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-[#3a1522]/60">
+              <div className="max-h-56 overflow-auto rounded-lg border border-border bg-background p-2 dark:border-white/10 dark:bg-[#240910]">
                 <div className="grid gap-1">
                   {sortedPlatformUsers.map((u) => {
                     const team = editingTeamForProject
@@ -745,7 +757,7 @@ export default function ProjectsPage() {
                         key={`pm-${u.id}`}
                         title={!inTeam && !checked ? "Сначала добавьте в команду" : undefined}
                         className={`flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm ${
-                          memberDisabled ? "cursor-default opacity-70" : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#232730]"
+                          memberDisabled ? "cursor-default opacity-70" : "cursor-pointer hover:bg-muted/50 dark:hover:bg-[#3a1522]"
                         }`}
                       >
                         <div className="min-w-0">
